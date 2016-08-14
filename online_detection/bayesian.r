@@ -16,3 +16,11 @@ exphazard <- function(x,rate=1){
     dexp(x,rate=rate)/(1-pexp(x,rate = rate))
 }
 exphazard(1:10)                         #constant hazard 
+
+
+## integrate a scalar function over a multidimensional rectangle
+library(cubature)
+adaptIntegrate()
+
+## direct calcualtion of predictivedistribution:
+## P(x|hyperparameter)=Int_{theta}P(x|theta)P(theta|hyperparameter)
