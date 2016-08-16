@@ -23,13 +23,13 @@ Exponential family likelihoods allow inference with a finite number of sufficien
 Generate a recursive message-passing algorithm for the joint distribution over the current run length and the data
 
 ###### Basic Principle:
-As from the above definition, our goal here is to <span style="color:darkred">**recursively**(use recusive methods for the purpose of online calculation)</span> compute the probability distribution of **the length of the current “run,”** or time since the last changepoint, denote this **posterior distribution** as $P(r_t|x_{1:t})$
+With the above definitions, our goal here is to <span style="color:darkred">**recursively**(use recusive methods for the purpose of online calculation)</span> compute the probability distribution of **the length of the current “run”,** or time since the last changepoint, denote this **posterior distribution** as $P(r_t|x_{1:t})$
 According to bayesian therom,
 $$P(r_t|x_{1:t})=\frac{P(r_t,x_{1:t})}{P(x_{1:t})}, \tag{1}$$
-we can devide the calculation of the conditional distribution into two subproblems according to $(1)$:
-1.Calculate the joint distributioin $P(r_t|x_{1:t})$
-2.Calculate the normalizing constant $P(x_{1:t})$
-As for subproblem 2, $P(x_{1:t})$ can be easily calculated by integrate out $r_t$ in subproblem 1. i.e. $P(x_{1:t})=\sum_{r_t}P(r_t,x_{1:t})$. So basically we need only focus on subproblem 1, the derivation of $P(r_t|x_{1:t})$.
+According to $(1)$, we can devide the calculation of the conditional distribution into two subproblems:
+**1.** Calculate the joint distributioin $P(r_t,x_{1:t})$.
+**2.** Calculate the normalizing constant $P(x_{1:t})$.
+As for subproblem 2, $P(x_{1:t})$ can be easily calculated by integrate out $r_t$ in subproblem 1. i.e. $P(x_{1:t})=\sum_{r_t}P(r_t,x_{1:t})$. So basically we need only focus on subproblem 1, the derivation of $P(r_t,x_{1:t})$.
 **Keep in mind that to make the online calculation possible, the derived represntation of subproblem 1 must be recursive.** i.e. when the previous information is known, one need to derive a relation between previous information and current estimation. Here in subproblem 1, the previous information is $P(r_{t-1}|x_{1:t-1})$, and the current estimation is $P(r_t|x_{1:t})$. In order to relate these two distributions, first we need to <span style="color:darkred">**disintegrate**</span>  $P(r_t|x_{1:t})$ by $r_{t-1}$, and then use bayes rule to extract $P(r_{t-1}|x_{1:t-1})$:
 $$
 \begin{align}
@@ -40,16 +40,31 @@ P(r_t|x_{1:t}) & = \sum_{r_{t-1}} P(r_t,r_{t-1},x_{1:t})\\
 \end{align}
 $$
 Remark:
-+ By definition, $x^{(r)}_t \subset x_{1:t-1}$. Or more precisely, $x^{(r)}_t$ is the last $r_t$ elements of $x_{1:t-1}$.
++ By definition, $x^{(r)}_t \subset x_{1:t-1}$. Or more precisely, $x^{(r)}_t$ is the last $r_t$(may be zero) elements of $x_{1:t-1}$.
 + $P(x_{t}|x_{1:t-1},r_t\ or\ r_{t-1})$ relies only on $x_t^{(r)}$, i.e. $P(x_{t}|x_{1:t-1},r_t\ or\ r_{t-1})=P(x_{t}|x_t^{(r)})$. Intuitively, if $x_{t}$ and $x_{t-1}$ belong to the same partition, then  the prediction probability of $x_{t}$ is $P(x_{t}|\eta_{t-1})$, where $\eta_{t-1}$ is determined by $x^{(r)}_t$, so we have $P(x_{t}|\eta_{t-1})=P(x_{t}|x^{(r)}_t)$. On the other hand, if $x_{t}$ belongs to a new partition, then $x_{t}$ is irrevelant to $\eta_{t-1}$, the equation still holds: $P(x_{t})=P(x_{t}|\eta_{t-1})=P(x_{t}|x^{(r)}_t)$
 + $r_t$ only depends on $r_{t-1}$.
 
 According to $(2)$, subproblem 1 is further devided into 3 minus subproblems:
-(a). prediction distribution $P(x_t|x^{(r)}_t)$
-(b). 
-
-
-Where 
+**(a).** Construct a **boundary condition**, or the initial distribution of $P(r_{t-1}, x_{1:t-1})$. When $t=1$, $P(r_{t-1}, x_{1:t-1})=P(r_0,x_{0})$, note that $x_0$ is an empty set, so the problem can be simplified to the construction of $P(r_0)$.
+**(b).** Construct a transition distribution $P(r_t|r_{t-1})$
+**(c).** Construct a prediction distribution $P(x_t|x^{(r)}_t)$
+As to (a), the simplist way is to assume a changepoint occured before the first data. In such cases we place all of the probability mass for the initial run length at zero, i.e. $P(r_0=0) = 1$.
+As to (b), $P(r_t|r_{t-1}) $has non-zero mass at only two outcomes: the run length either continues to grow and $r_t = r_{t−1} + 1$ or a changepoint occurs and $r_t = 0$. <span style="color:darkred">This reasoning process is the same as the one used in inferring **motality rate**, which can be easily interpretated by a **hazard function**($hazard=\frac{density}{survival}$). </span> Here we have:
+$$
+\begin{align}
+P(r_t|r_{t-1}) & = &\\
+& H(r_{t-1}+1), & if\ r_t=0,\\
+& \frac{H(r_{t-1}+1)}{1-H(r_{t-1}+1)}, &if\ r_t=r_{t-1}+1\\
+& 0, & other.
+\end{align}
+$$
+Where
+$$
+H(g=\tau)=\frac{P_{gap}(g=\tau)}{\sum_{i=\tau}^{infinity}{P_{gap}(g=i)}}.
+$$
+Any prior information about run length transitions can be easily incoporated by the form of $P_{gap}(g)$. For example, if $P_{gap}(g)$ is an exponential(or geometric, if discrete) distribution with timesacle $\lambda$, then the hazard function is constant(independent of previous run length), $H(g)=1/\lambda$. It is the same as making no prior assumptions on run length transitions.
+As to (c). let $\eta_t$ be the parameter inferred from $x^{(r)}_t$, in bayesian point of view. $P(\eta_t|x^{(r)}_t) \propto P(x^{(r)}_t | \eta_t)P_{pi}(\eta_t| )$
+$P(x_t|x^{(r)}_t)$
 
 intuitions:
 Recall from state space models, to get a posterior estimation of true state, one need to prepare a predictive distribution and a observation distirbution.
