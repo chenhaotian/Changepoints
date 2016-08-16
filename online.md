@@ -1,4 +1,4 @@
-### 5. Online Changepoint Detection
+### 1. Online Changepoint Detection
 
 Changepoints are abrupt variations in the generative parameters of a data sequence.
 
@@ -19,14 +19,11 @@ Exponential family likelihoods allow inference with a finite number of sufficien
   Joint distribution $P(r_t,x_{1:t})$
 
 
-
-Generate a recursive message-passing algorithm for the joint distribution over the current run length and the data
-
 ###### Basic Principle:
 With the above definitions, our goal here is to <span style="color:darkred">**recursively**(use recusive methods for the purpose of online calculation)</span> compute the probability distribution of **the length of the current “run”,** or time since the last changepoint, denote this **posterior distribution** as $P(r_t|x_{1:t})$
 According to bayesian therom,
 $$P(r_t|x_{1:t})=\frac{P(r_t,x_{1:t})}{P(x_{1:t})}, \tag{1}$$
-According to $(1)$, we can devide the calculation of the conditional distribution into two subproblems:
+we can devide the calculation of the conditional distribution into two subproblems:
 **1.** Calculate the joint distributioin $P(r_t,x_{1:t})$.
 **2.** Calculate the normalizing constant $P(x_{1:t})$.
 As for subproblem 2, $P(x_{1:t})$ can be easily calculated by integrate out $r_t$ in subproblem 1. i.e. $P(x_{1:t})=\sum_{r_t}P(r_t,x_{1:t})$. So basically we need only focus on subproblem 1, the derivation of $P(r_t,x_{1:t})$.
@@ -55,21 +52,27 @@ $$
 P(r_t|r_{t-1}) & = &\\
 & H(r_{t-1}+1), & if\ r_t=0,\\
 & \frac{H(r_{t-1}+1)}{1-H(r_{t-1}+1)}, &if\ r_t=r_{t-1}+1\\
-& 0, & other.
+& 0, & other. \tag{3}
 \end{align}
 $$
 Where
 $$
-H(g=\tau)=\frac{P_{gap}(g=\tau)}{\sum_{i=\tau}^{infinity}{P_{gap}(g=i)}}.
+H(g=\tau)=\frac{P_{gap}(g=\tau)}{\sum_{i=\tau}^{infinity}{P_{gap}(g=i)}}. \tag{4}
 $$
 Any prior information about run length transitions can be easily incoporated by the form of $P_{gap}(g)$. For example, if $P_{gap}(g)$ is an exponential(or geometric, if discrete) distribution with timesacle $\lambda$, then the hazard function is constant(independent of previous run length), $H(g)=1/\lambda$. It is the same as making no prior assumptions on run length transitions.
-As to (c). let $\eta_t$ be the parameter inferred from $x^{(r)}_t$, in bayesian point of view. $P(\eta_t|x^{(r)}_t) \propto P(x^{(r)}_t | \eta_t)P_{pi}(\eta_t| )$
-$P(x_t|x^{(r)}_t)$
+As to (c). Recall that in bayesian point of view, if every data point $x$ belongs to a distribution $P(x|\eta)$, and $\eta$ belongs to a prior distribution $P(\eta|\theta)$, where $\theta$ is the hyperparameters. Then the posterior distribution of $\eta$ can be shown satisfying $P(\eta|x)=P(x|\eta)P(\eta|\theta)/P(x)$. Here in this problem. let $\eta_t$ be the parameter inferred from $x^{(r)}_t$, then we have:
+$$
+P(\eta_t|x^{(r)}_t)=P(x^{(r)}_t|\eta_t)P(\eta_t|\theta)/P(x_{1:t-1}). \tag{5}
+$$
+And the prediction distribution can be easily calculated when disintegrated by $\eta_t$:
+$$
+\begin{align}
+P(x_t|x^{(r)}_t)&=\int_{\eta_t}P(x_t|\eta_t)P(\eta_t|x^{(r)}_t)\\
+&=\int_{\eta_t}P(x_t|\eta_t)(5) \tag{6}
+\end{align}
+$$
+So far we have only one problem left, i.e. the derivation of $(5)$. There are three parts in $(5)$, they are the **likelihood function** $P(x^{(r)}_t|\eta_t)$(or the sample distribution $P(x|\eta_t)$, the two technically imply the same thing), the **prior distribution** $P(\eta_t|\theta)$ and the normalizing constant $P(x_{1:t-1})$. Because the normalizing constant is already dealt in subproblem 2, here we only need to find a proper likelihood function and a prior distribution.
+Particularly, if both likelihood and prior 
 
-intuitions:
-Recall from state space models, to get a posterior estimation of true state, one need to prepare a predictive distribution and a observation distirbution.
-
-assume:
-+ $P(x_{t+1}|r_t,x^{(r)}_t)$ is known(or computable)
 
 
