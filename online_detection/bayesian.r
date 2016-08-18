@@ -91,8 +91,8 @@ onlinechangepoint <- function(X,MAXlength=1000L,
     }
     ## density function of normal-gamma distribution
     dnormalgamma <- function(mu,tau){
-        dnorm(mu,mean = mu0,sd=sqrt(1/(k0*tau)))*
-            dgamma(tau,shape = alpha0,rate = beta0)
+        dnorm(mu,mean = tracker["mu0"],sd=sqrt(1/(tracker["k0"]*tau)))*
+            dgamma(tau,shape = tracker["alpha0"],rate = tracker["beta0"])
     }
     prediction <- function(eta){
         dnorm(x,mean = eta[1],sd = sqrt(1/eta[2]))*
@@ -107,6 +107,18 @@ onlinechangepoint <- function(X,MAXlength=1000L,
     P_x <- 0                           #probability of observing x, P(x|hyper)
     P_X <- 1                           #evidence, P(x_{1:t})
 
+
+    r <- 0                             #run lengths
+    D_r <- 1                           #density of r, P(r_t|x_{1:t})
+    D_rX <- 1                          #density of r and x_{1:t}, P(r_t,x_{1:t})
+    P_X <- 1                           #evidence, P(x_{1:t})
+
+    tracker <- matrix(c(0,1,1,1,mu0,k0,alpha0,beta0),nrow = 1,
+                      dimnames = list(NULL,
+                                      c("r","D_r","D_rX","P_X","mu0","k0","alpha0","beta0")))
+
+    P_x <- 0                           #probability of observing x, P(x|hyper)
+
     res <- matrix(0,nrow = length(X),ncol = MAXlength+1) #result container
     pos <- 1
 
@@ -115,6 +127,9 @@ onlinechangepoint <- function(X,MAXlength=1000L,
     debugmu0 <- rep(0,length(X))
     
     for(x in X){
+        lapply(R,function(r){
+            
+        })
         ## predictive probability
         P_x <- adaptIntegrate(f=prediction,lowerLimit = lowerLimit,upperLimit = upperLimit,maxEval = 10000)$integral
         ## growth probabilities and changepoint probability

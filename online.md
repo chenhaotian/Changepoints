@@ -1,14 +1,11 @@
 ### 1. Online Changepoint Detection
 
-Changepoints are abrupt variations in the generative parameters of a data sequence.
+An implementation of Ryan&David's bayesian online changepoint detection algorithm.
 
-We , using a simple message-passing algorithm.
+**see the R code [here](https://github.com/chenhaotian/Changepoints/tree/master/online_detection)**
 
-Observations can be devided into non-overlapping paritions, data within each parition are i.i.d.
-
-Exponential family likelihoods allow inference with a finite number of sufficient statistics which can be calculated incrementally as data arrives
-
-**Boundary Condition: initial distribution**
+**reference:**
+[Bayesian Online Changepoint Detection](http://arxiv.org/abs/0710.3742)
 
 ###### Definition:
 + $r_t$ is the time lenght since last changepoint, $x_{t}^{(r)}$ denote the data sets associated with run $r_t$. **As $r$ may be zero, $x^{(r)}$ may be empty**.
