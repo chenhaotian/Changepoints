@@ -74,7 +74,7 @@ As to (c). Recall that in bayesian point of view, if every data point $x$ belong
 $$
 P(\eta_t|x^{(r)}_t)=P(x^{(r)}_t|\eta_t)P(\eta_t|\theta)/P(x_{1:t-1}). \tag{5}
 $$
-And the prediction distribution can be easily calculated when disintegrated by $\eta_t$:
+And the prediction distribution can be easily calculated when disintegrated by $\eta_t$(**bayesian prediction problem**):
 $$
 \begin{align}
 P(x_t|x^{(r)}_t)&=\int_{\eta_t}P(x_t|\eta_t)P(\eta_t|x^{(r)}_t)\\
@@ -88,7 +88,13 @@ $$
 NG(\mu,\tau) = N(\mu|(k_0\tau)^{-1})Ga(\tau|\alpha_0,\beta_0)
 $$
 see [exponettial family](https://en.wikipedia.org/wiki/Exponential_family#Bayesian_estimation:_conjugate_distributions) and [Conjugate Bayesian analysis of the Gaussian distribution](http://www-devel.cs.ubc.ca/~murphyk/Papers/bayesGauss.pdf) for more information.
-** Note that in this example c($k_0$,$\alpha_0$) and c($\mu_0$,$\beta_0$) act as effective number of observations $v$ and the amount contribute to the sufficient statistic $\chi$ repestectively.**
+** Note**
+1. In the above example c($k_0$,$\alpha_0$) and c($\mu_0$,$\beta_0$) act the same as effective number of observations $v$ and the amount contribute to the sufficient statistic $\chi$ repestectively.
+2. In the bayesian prediction problem $(6)$, calculate the integration $\int_{\eta} p(x_t|\eta)p(\eta|x_{1:t-1})$ directly will be too time consuming. Alternatively, we can use the expected value of $\eta$ instead of the whole distribution to approximate the probability. i.e. 
+$$
+\int_{\eta} p(x_t|\eta)p(\eta|x_{1:t-1})\approx p(x_t|E(\eta|x_{1:t-1}))
+$$
+
 
 
 ### 2. Level&Trend Change(CUMSUM)

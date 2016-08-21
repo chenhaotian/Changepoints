@@ -10,14 +10,18 @@ plot(Y,type = "l")
 
 ## Normal likelihood and normal-gamma prior distribution
 ## mu0, k0, alpha0, beta0: normal-gamma parameters
-## lower/upperLimit: integrete limit of the parameters in the likelihood function. Use this limit to approximate the whole interval in calculating predictive probability.
+## bpmethod: bayesian prediction method. 'bruteforce': calculate the bayesian prediction probability directly by integrate over (6). 'mean': use the posterior mean of \eta to approximate the calculation.
+## lower/upperLimit: only meaningful when bpmethod='bruteforce', specifying integrete limit of the parameters in the likelihood function. Use this limit to approximate the whole interval in calculating predictive probability.
 ## lambda: parameter of the exponential hazard function.
 ## FILTER: if P(r_t|x_{1:t})<FILTER, this r_t will be omitted in the next calculation.
 onlinechangepoint <- function(X,
                               mu0=0,k0=1,alpha0=1/2,beta0=1,
+                              bpmethod=c("bruteforce","mean"),
                               lowerLimit=c(-1,0),upperLimit=c(3,1e2),
                               lambda=1000, #exponential hazard
                               FILTER=1e-4){
+    
+    match.arg(bpmethod,c("bruteforce","mean"))
     hazard <- 1/lambda                  #constant hazard function
 
     ## initialize
@@ -35,21 +39,27 @@ onlinechangepoint <- function(X,
     for(x in X){
         ## 1. general calculation
         ## P(x_{t+1}|hyper)
-        r_snapshot[,"ppredict"] <- as.vector(apply(r_snapshot,1,function(l){
-            ## density function of normal-gamma distribution
-            dnormalgamma <- function(mu,tau){
-                dnorm(mu,mean = l["mu0"],sd=sqrt(1/(l["k0"]*tau)))*
-                    dgamma(tau,shape = l["alpha0"],rate = l["beta0"])
-            }
-            prediction <- function(eta){
-                dnorm(x,mean = eta[1],sd = sqrt(1/eta[2]))*
-                    dnormalgamma(eta[1],eta[2])
-            }
-            ## direct calcualtion of predictivedistribution:
-            ## P(x|hyperparameter)=Int_{theta}P(x|theta)P(theta|hyperparameter)
-            ## integrate a scalar function over a multidimensional rectangle: library(cubature)
-            adaptIntegrate(f=prediction,lowerLimit = lowerLimit,upperLimit = upperLimit,maxEval = 10000)$integral
-        }))
+        if(bpmethod=="bruteforce"){
+            r_snapshot[,"ppredict"] <- as.vector(apply(r_snapshot,1,function(l){
+                ## density function of normal-gamma distribution
+                dnormalgamma <- function(mu,tau){
+                    dnorm(mu,mean = l["mu0"],sd=sqrt(1/(l["k0"]*tau)))*
+                        dgamma(tau,shape = l["alpha0"],rate = l["beta0"])
+                }
+                prediction <- function(eta){
+                    dnorm(x,mean = eta[1],sd = sqrt(1/eta[2]))*
+                        dnormalgamma(eta[1],eta[2])
+                }
+                ## direct calcualtion of predictivedistribution:
+                ## P(x|hyperparameter)=Int_{theta}P(x|theta)P(theta|hyperparameter)
+                ## integrate a scalar function over a multidimensional rectangle: library(cubature)
+                adaptIntegrate(f=prediction,lowerLimit = lowerLimit,upperLimit = upperLimit,maxEval = 10000)$integral
+            }))
+        }
+        else if(bpmethod=="mean"){
+            ## if x~gamma(shape=alpha,rate=beta), then mean(x)=alpha/beta
+            r_snapshot[,"ppredict"] <- dnorm(x,mean = r_snapshot[,"mu0"],sd = sqrt(r_snapshot[,"beta0"]/r_snapshot[,"alpha0"]))
+        }
         ## P(r+1,x_{1:t}) and P(0,x_{1:t})
         tmp <- r_snapshot[,"p"]*r_snapshot[,"ppredict"]
         r_snapshot[,"pgrow"] <- tmp*(1-hazard)
@@ -92,15 +102,15 @@ onlinechangepoint <- function(X,
 ## online changepoint detection for series X
 resX <- onlinechangepoint(X,
                          mu0=0.7,k0=1,alpha0=1/2,beta0=1,
-                         lowerLimit=c(-10,0),upperLimit=c(10,10),
+                         bpmethod = "mean", #the brute-force method is too time consuming
                          lambda=50, #exponential hazard
                          FILTER=1e-3)
 ## online changepoint detection for series Y
 resY <- onlinechangepoint(Y,
-                         mu0=0,k0=0.5,alpha0=1/2,beta0=1,
-                         lowerLimit=c(-10,0),upperLimit=c(10,10),
-                         lambda=50, #exponential hazard
-                         FILTER=1e-3)
+                          mu0=0,k0=0.5,alpha0=1/2,beta0=1,
+                          bpmethod = "mean",
+                          lambda=50, #exponential hazard
+                          FILTER=1e-3)
 
 ## plot for X (same as Y)
 pd <- data.frame()
@@ -109,6 +119,7 @@ for(i in 1:length(resX)){
 }
 p1 <- ggplot(pd)+geom_point(aes(x=x,y=y,alpha=alpha),fill="black")+theme(legend.position = "none")
 p2 <- ggplot(data.frame(x=1:length(X),y=X))+geom_line(aes(x=x,y=y))
+
 ## multiplot() from R-cookbook
 # Multiple plot function
 #
