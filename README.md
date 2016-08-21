@@ -11,6 +11,15 @@ An implementation of Ryan&David's bayesian online changepoint detection algorith
 **reference:**
 [Bayesian Online Changepoint Detection](http://arxiv.org/abs/0710.3742)
 
+####### Level change:
+Real changepoints: 100,170,240,310,380.
+Original data and inferred run length distribution:
+![](online_detection/online_level.png)
+####### Volatility change:
+Real changepoints: 100,170,240,310,380.
+Original data and inferred run length distribution:
+![](online_detection/online_variance.png)
+
 ###### Definition:
 + $r_t$ is the time lenght since last changepoint, $x_{t}^{(r)}$ denote the data sets associated with run $r_t$. **As $r$ may be zero, $x^{(r)}$ may be empty**.
 + For each parition $\rho$, the data within it are i.i.d. from some probability distribution $P (x_t | \eta_\rho)$
@@ -52,7 +61,7 @@ $$
 \begin{align}
 P(r_t|r_{t-1}) & = &\\
 & H(r_{t-1}+1), & if\ r_t=0,\\
-& \frac{H(r_{t-1}+1)}{1-H(r_{t-1}+1)}, &if\ r_t=r_{t-1}+1\\
+& {1-H(r_{t-1}+1}, &if\ r_t=r_{t-1}+1\\
 & 0, & other. \tag{3}
 \end{align}
 $$
@@ -74,16 +83,12 @@ P(x_t|x^{(r)}_t)&=\int_{\eta_t}P(x_t|\eta_t)P(\eta_t|x^{(r)}_t)\\
 $$
 So far we have only one problem left, i.e. the derivation of $(5)$. There are three parts in $(5)$, they are the **likelihood function** $P(x^{(r)}_t|\eta_t)$(or the sample distribution $P(x|\eta_t)$, the two are technically implying the same thing), the **prior distribution** $P(\eta_t|\theta)$ and the normalizing constant $P(x_{1:t-1})$. Because the normalizing constant is already dealt in subproblem 2, here we only need to find a proper likelihood function and a prior distribution.
 Generally, we need to calculate the posterior distribution of $\eta_t$ directly from $(5)$, but sometimes it would be vary time consuming. Particularly, if both likelihood and prior distribution are from exponential family, the posterior distribution will also from exponential family, and allow inference with a finite number of sufficient statistics which can be calculated incrementally as data arrives.
-see [exponettial family](https://en.wikipedia.org/wiki/Exponential_family#Bayesian_estimation:_conjugate_distributions) for more information.
-Here is a general case where there is a normal ikelihood function with unkonwn mean $\mu$ and precision $\tau$(or inverse of variance,$1/\sigma^2$). Usually, if $\tau$ is known, $\mu$ follows a noramal distribution with mean $\mu_0$ and precision $k_0$, and if $\mu$ is known, $\tau$ follows a gamma distribution with shape $\alpha_0$ and rate(1/sclale) $\beta_0$. When both $\mu$ and $\tau$ are known, it is usual to assme they follow a normal-gamma distribution with parameters $\mu_0,k_0,\alpha_0$ and $\beta_0$ :
+Here is a general case where there is a normal ikelihood function with unkonwn mean $\mu$ and precision $\tau$(or inverse of variance,$1/\sigma^2$). Usually, if $\tau$ is known, $\mu$ follows a noramal distribution with mean $\mu_0$ and precision $k_0$, and if $\mu$ is known, $\tau$ follows a gamma distribution with shape $\alpha_0$ and rate(1/sclale) $\beta_0$. When both $\mu$ and $\tau$ are unknown, it is usual to assme they follow a normal-gamma distribution with parameters $\mu_0,k_0,\alpha_0$ and $\beta_0$ :
 $$
-\begin{align}
-NG(\mu,\tau) & = N(\mu|(k_0\tau)^{-1})Ga(\tau|\alpha_0,\beta_0) \\
-&=\frac{\Gamma(\alpha_0)}{\beta_0^{\alpha_0}}(\frac{2\pi}{\tau_0})^{1/2}
-\end{align}
+NG(\mu,\tau) = N(\mu|(k_0\tau)^{-1})Ga(\tau|\alpha_0,\beta_0)
 $$
-
-
+see [exponettial family](https://en.wikipedia.org/wiki/Exponential_family#Bayesian_estimation:_conjugate_distributions) and [Conjugate Bayesian analysis of the Gaussian distribution](http://www-devel.cs.ubc.ca/~murphyk/Papers/bayesGauss.pdf) for more information.
+** Note that in this example c($k_0$,$\alpha_0$) and c($\mu_0$,$\beta_0$) act as effective number of observations $v$ and the amount contribute to the sufficient statistic $\chi$ repestectively.**
 
 
 ### 2. Level&Trend Change(CUMSUM)
