@@ -14,11 +14,11 @@ An implementation of Ryan&David's bayesian online changepoint detection algorith
 ####### Level change:
 Real changepoints: 100,170,240,310,380.
 Original data and inferred run length distribution:
-![](online_detection/online_level.png)
+![](https://raw.githubusercontent.com/chenhaotian/Changepoints/master/online_detection/online_level.png)
 ####### Volatility change:
 Real changepoints: 100,170,240,310,380.
 Original data and inferred run length distribution:
-![](online_detection/online_variance.png)
+![](https://raw.githubusercontent.com/chenhaotian/Changepoints/master/online_detection/online_variance.png)
 
 ###### Definition:
 + $r_t$ is the time lenght since last changepoint, $x_{t}^{(r)}$ denote the data sets associated with run $r_t$. **As $r$ may be zero, $x^{(r)}$ may be empty**.
@@ -107,11 +107,11 @@ An implementation of Page's mean shift detection algorithm(CUMSUM).
 
 ##### Raw data
 Real change point positions: 1000,1700,2400,3100
-![](./leveltrend_change/raw.png)
+![](https://raw.githubusercontent.com/chenhaotian/Changepoints/master/leveltrend_change/raw.png)
 ##### Detected level and trend
 Detected change point positions: 996,1695,2400,3104
-![](./leveltrend_change/level.png)
-![](./leveltrend_change/trend.png)
+![](https://raw.githubusercontent.com/chenhaotian/Changepoints/master/leveltrend_change/level.png)
+![](https://raw.githubusercontent.com/chenhaotian/Changepoints/master/leveltrend_change/trend.png)
 
 ### 3. Burst Detection
 
@@ -127,15 +127,15 @@ An implementation of  Makram Talih's graph structural change detection algorithm
 
 ##### Raw data
 
-![](./structural_change/Screenshot from 2015-04-30 16:35:28.png)
+![](https://raw.githubusercontent.com/chenhaotian/Changepoints/master/structural_change/Screenshot from 2015-04-30 16:35:28.png)
 
 ##### Original gaussian graph
 
-![](./structural_change/Screenshot from 2015-04-30 16:35:48.png)
+![](https://raw.githubusercontent.com/chenhaotian/Changepoints/master/structural_change/Screenshot from 2015-04-30 16:35:48.png)
 
 ##### Detucted gaussian graph
 
-![](./structural_change/Screenshot from 2015-04-30 16:36:38.png)
+![](https://raw.githubusercontent.com/chenhaotian/Changepoints/master/structural_change/Screenshot from 2015-04-30 16:36:38.png)
 
 ### 6. Outlier
 
