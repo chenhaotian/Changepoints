@@ -105,6 +105,14 @@ resX <- onlinechangepoint(X,
                          bpmethod = "mean", #the brute-force method is too time consuming
                          lambda=50, #exponential hazard
                          FILTER=1e-3)
+
+resX <- onlinechangepoint(X,
+                         mu0=0,k0=1,alpha0=1/2,beta0=1,
+                         bpmethod = "mean", #the brute-force method is too time consuming
+                         lambda=50, #exponential hazard
+                         FILTER=1e-3)
+
+
 ## online changepoint detection for series Y
 resY <- onlinechangepoint(Y,
                           mu0=0,k0=0.5,alpha0=1/2,beta0=1,
@@ -119,6 +127,8 @@ for(i in 1:length(resX)){
 }
 p1 <- ggplot(pd)+geom_point(aes(x=x,y=y,alpha=alpha),fill="black")+theme(legend.position = "none")
 p2 <- ggplot(data.frame(x=1:length(X),y=X))+geom_line(aes(x=x,y=y))
+
+p3 <- ggplot(data.frame(x=1:length(tail(price,999)),y=tail(price,999)))+geom_line(aes(x=x,y=y))
 
 ## multiplot() from R-cookbook
 # Multiple plot function

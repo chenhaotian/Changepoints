@@ -11,11 +11,11 @@ An implementation of Ryan&David's bayesian online changepoint detection algorith
 **reference:**
 [Bayesian Online Changepoint Detection](http://arxiv.org/abs/0710.3742)
 
-####### Level change:
+###### Level change:
 Real changepoints: 100,170,240,310,380.
 Original data and inferred run length distribution:
 ![](https://raw.githubusercontent.com/chenhaotian/Changepoints/master/online_detection/online_level.png)
-####### Volatility change:
+###### Volatility change:
 Real changepoints: 100,170,240,310,380.
 Original data and inferred run length distribution:
 ![](https://raw.githubusercontent.com/chenhaotian/Changepoints/master/online_detection/online_variance.png)
@@ -140,3 +140,6 @@ An implementation of  Makram Talih's graph structural change detection algorithm
 ### 6. Outlier
 
 reference:
+
+### 7. STL
+
