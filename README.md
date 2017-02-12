@@ -40,7 +40,7 @@ As for subproblem 2, $P(x_{1:t})$ can be easily calculated by integrate out $r_t
 **Keep in mind that to make the online calculation possible, the derived represntation of subproblem 1 must be recursive.** i.e. when the previous information is known, one need to derive a relation between previous information and current estimation. Here in subproblem 1, the previous information is $P(r_{t-1}|x_{1:t-1})$, and the current estimation is $P(r_t|x_{1:t})$. In order to relate these two distributions, first we need to <span style="color:darkred">**disintegrate**</span>  $P(r_t|x_{1:t})$ by $r_{t-1}$, and then use bayes rule to extract $P(r_{t-1}|x_{1:t-1})$:
 $$
 \begin{align}
-P(r_t|x_{1:t}) & = \sum_{r_{t-1}} P(r_t,r_{t-1},x_{1:t})\\
+P(r_t,x_{1:t}) & = \sum_{r_{t-1}} P(r_t,r_{t-1},x_{1:t})\\
 = & \sum_{r_{t-1}} P(r_t,x_t|r_{t-1},x_{1:t-1})P(r_{t-1},x_{1:t-1})\\
 = & \sum_{r_{t-1}} P(x_t|r_t,r_{t-1},x_{1:t-1})P(r_t|r_{t-1},x_{1:t-1})P(r_{t-1},x_{1:t-1})\\
 = & \sum_{r_{t-1}} P(x_t|x^{(r)}_t)P(r_t|r_{t-1})P(r_{t-1},x_{1:t-1}) \tag{2}
@@ -61,7 +61,7 @@ $$
 \begin{align}
 P(r_t|r_{t-1}) & = &\\
 & H(r_{t-1}+1), & if\ r_t=0,\\
-& {1-H(r_{t-1}+1}, &if\ r_t=r_{t-1}+1\\
+& {1-H(r_{t-1}+1)}, &if\ r_t=r_{t-1}+1\\
 & 0, & other. \tag{3}
 \end{align}
 $$
@@ -70,7 +70,7 @@ $$
 H(g=\tau)=\frac{P_{gap}(g=\tau)}{\sum_{i=\tau}^{infinity}{P_{gap}(g=i)}}. \tag{4}
 $$
 Any prior information about run length transitions can be easily incoporated by the form of $P_{gap}(g)$. For example, if $P_{gap}(g)$ is an exponential(or geometric, if discrete) distribution with timesacle $\lambda$, then the hazard function is constant(independent of previous run length), $H(g)=1/\lambda$. It is the same as making no prior assumptions on run length transitions.
-As to (c). Recall that in bayesian point of view, if every data point $x$ belongs to a distribution $P(x|\eta)$, and $\eta$ belongs to a prior distribution $P(\eta|\theta)$, where $\theta$ is the hyperparameters. Then the posterior distribution of $\eta$ can be shown satisfying $P(\eta|x)=P(x|\eta)P(\eta|\theta)/P(x)$. Here in this problem. let $\eta_t$ be the parameter inferred from $x^{(r)}_t$, then we have:
+As to (c). Recall that in bayesian point of view, if every data point $x$ subject to a distribution $P(x|\eta)$, and $\eta$ subject to a prior distribution $P(\eta|\theta)$, where $\theta$ is the hyperparameters. Then the posterior distribution of $\eta$ can be shown satisfying $P(\eta|x)=P(x|\eta)P(\eta|\theta)/P(x)$. Here in this problem. let $\eta_t$ be the parameter inferred from $x^{(r)}_t$, then we have:
 $$
 P(\eta_t|x^{(r)}_t)=P(x^{(r)}_t|\eta_t)P(\eta_t|\theta)/P(x_{1:t-1}). \tag{5}
 $$
@@ -78,7 +78,7 @@ And the prediction distribution can be easily calculated when disintegrated by $
 $$
 \begin{align}
 P(x_t|x^{(r)}_t)&=\int_{\eta_t}P(x_t|\eta_t)P(\eta_t|x^{(r)}_t)\\
-&=\int_{\eta_t}P(x_t|\eta_t)(5) \tag{6}
+&=\int_{\eta_t}P(x_t|\eta_t) \tag{6}
 \end{align}
 $$
 So far we have only one problem left, i.e. the derivation of $(5)$. There are three parts in $(5)$, they are the **likelihood function** $P(x^{(r)}_t|\eta_t)$(or the sample distribution $P(x|\eta_t)$, the two are technically implying the same thing), the **prior distribution** $P(\eta_t|\theta)$ and the normalizing constant $P(x_{1:t-1})$. Because the normalizing constant is already dealt in subproblem 2, here we only need to find a proper likelihood function and a prior distribution.

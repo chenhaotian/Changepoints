@@ -1,6 +1,5 @@
 library(ggplot2)
 library(plyr)
-
 library(lubridate)
 
 
@@ -107,17 +106,17 @@ plot.trend <- function(y,cp){
 
 
 
-x <- c(rnorm(1000),rnorm(700,mean=1),rnorm(700,mean = 2),rnorm(700),rnorm(700,mean = 1))
-y <- x+seq(1:length(x))*0.01
+## x <- c(rnorm(1000),rnorm(700,mean=1),rnorm(700,mean = 2),rnorm(700),rnorm(700,mean = 1))
+## y <- x+seq(1:length(x))*0.01
 
-par(mfcol = c(2,1))
-plot(x,type = "l",main = "Raw Level")
-plot(y,type = "l",main = "Raw Trend")
+## par(mfcol = c(2,1))
+## plot(x,type = "l",main = "Raw Level")
+## plot(y,type = "l",main = "Raw Trend")
 
 
 
-cp <- Cstar(x)
-plot.level(x,cp)
+## cp <- Cstar(x)
+## plot.level(x,cp)
 
-cp <- Dstar(y)
-plot.trend(y,cp)
+## cp <- Dstar(y)
+## plot.trend(y,cp)
