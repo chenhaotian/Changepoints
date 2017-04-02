@@ -127,15 +127,15 @@ An implementation of  Makram Talih's graph structural change detection algorithm
 
 ##### Raw data
 
-![](https://raw.githubusercontent.com/chenhaotian/Changepoints/master/structural_change/Screenshot from 2015-04-30 16:35:28.png)
+![](./structural_change/Screenshot from 2015-04-30 16:35:28.png)
 
 ##### Original gaussian graph
 
-![](https://raw.githubusercontent.com/chenhaotian/Changepoints/master/structural_change/Screenshot from 2015-04-30 16:35:48.png)
+![](./structural_change/Screenshot from 2015-04-30 16:35:48.png)
 
 ##### Detucted gaussian graph
 
-![](https://raw.githubusercontent.com/chenhaotian/Changepoints/master/structural_change/Screenshot from 2015-04-30 16:36:38.png)
+![](./structural_change/Screenshot from 2015-04-30 16:36:38.png)
 
 ### 6. Outlier
 
