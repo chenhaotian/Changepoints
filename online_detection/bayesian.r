@@ -16,7 +16,7 @@ plot(Y,type = "l")
 ## FILTER: if P(r_t|x_{1:t})<FILTER, this r_t will be omitted in the next calculation.
 onlinechangepoint <- function(X,
                               mu0=0,k0=1,alpha0=1/2,beta0=1,
-                              bpmethod=c("bruteforce","mean"),
+                              bpmethod=c("mean","bruteforce"),
                               lowerLimit=c(-1,0),upperLimit=c(3,1e2),
                               lambda=1000, #exponential hazard
                               FILTER=1e-4){
@@ -28,7 +28,7 @@ onlinechangepoint <- function(X,
     x_snapshot <- 1                     #P(x_{1:t})
     r_snapshot <- matrix(c(0,1,0,0,0,mu0,k0,alpha0,beta0,1),nrow = 1,
            dimnames=list(NULL,
-                         c("r","p","ppredict","pgrow","pshrink","mu0","k0","alpha0","beta0","prx"))) #r: run length, p: P(r_t,x_{1:t}), prx: P(r_t|x_{1:t})
+                         c("r","p","ppredict","pgrow","pshrink","mu0","k0","alpha0","beta0","prx"))) #r: run length, p: un-normalized P(r_t,x_{1:t}), prx: normalized P(r_t|x_{1:t})
 
     res <- list()
     
@@ -94,7 +94,6 @@ onlinechangepoint <- function(X,
 
     ## res <- matrix(0,nrow = length(X),ncol = MAXlength+1) #result container
     ## pos <- 1
-
 
     res
 }
