@@ -1,6 +1,7 @@
 ## online bayesian-------------------------
 library(cubature)                       #integrate over a hyper rectangle
 library(ggplot2)
+source("https://raw.githubusercontent.com/chenhaotian/Statistical-Tools/master/MCMCtools.r")
 
 X <- c(rnorm(100,sd=0.5),rnorm(70,mean=5,sd=0.5),rnorm(70,mean = 2,sd=0.5),rnorm(70,sd=0.5),rnorm(70,mean = 7,sd=0.5))
 Y <- c(rnorm(100,sd=0.5),rnorm(70,sd=1),rnorm(70,sd=3),rnorm(70,sd=1),rnorm(70,sd=0.5))
@@ -8,13 +9,18 @@ par(mfcol = c(2,1))
 plot(X,type = "l")
 plot(Y,type = "l")
 
-## Normal likelihood and normal-gamma prior distribution
-## mu0, k0, alpha0, beta0: normal-gamma parameters
-## bpmethod: bayesian prediction method. 'bruteforce': calculate the bayesian prediction probability directly by integrate over (6). 'mean': use the posterior mean of \eta to approximate the calculation.
-## lower/upperLimit: only meaningful when bpmethod='bruteforce', specifying integrete limit of the parameters in the likelihood function. Use this limit to approximate the whole interval in calculating predictive probability.
-## lambda: parameter of the exponential hazard function.
+## model: specifying model
+##    nng:normal evidence and normal-gamma prior
+##    pg: poisson evidence and gamma prior
+## mu0, k0, alpha0, beta0: normal-gamma parameter, when model="nng"
+## alpha0, beta0: gamma parameters when model="pg"(these two names alpha0 and beta0 are shared with "nng")
+## bpmethod: bayesian prediction method. 'bruteforce': calculate the bayesian prediction probability directly by integrate over (6), Note:relevant code has been commented. 'mean': use the posterior mean of \eta to approximate the calculation.
+## lower/upperLimit: only meaningful when bpmethod='bruteforce', specifying integrete limit of the parameters in the likelihood function. Use this limit to approximate the whole interval in calculating predictive probability:
+##     int_{lowerLimit}^{upperLimit} {P(x_t|theta_t)P(theta_t|hyper_t)}
+## lambda: parameter of the exponential hazard function.(transition probability)
 ## FILTER: if P(r_t|x_{1:t})<FILTER, this r_t will be omitted in the next calculation.
 onlinechangepoint <- function(X,
+                              model=c("nng","pg"),
                               mu0=0,k0=1,alpha0=1/2,beta0=1,
                               bpmethod=c("mean","bruteforce"),
                               lowerLimit=c(-1,0),upperLimit=c(3,1e2),
@@ -22,7 +28,7 @@ onlinechangepoint <- function(X,
                               FILTER=1e-4){
     
     match.arg(bpmethod,c("bruteforce","mean"))
-    hazard <- 1/lambda                  #constant hazard function
+    hazard <- 1/lambda                  #constant hazard function(transition probability)
 
     ## initialize
     x_snapshot <- 1                     #P(x_{1:t})
@@ -38,28 +44,31 @@ onlinechangepoint <- function(X,
     ## online update
     for(x in X){
         ## 1. general calculation
+        
         ## P(x_{t+1}|hyper)
-        if(bpmethod=="bruteforce"){
-            r_snapshot[,"ppredict"] <- as.vector(apply(r_snapshot,1,function(l){
-                ## density function of normal-gamma distribution
-                dnormalgamma <- function(mu,tau){
-                    dnorm(mu,mean = l["mu0"],sd=sqrt(1/(l["k0"]*tau)))*
-                        dgamma(tau,shape = l["alpha0"],rate = l["beta0"])
-                }
-                prediction <- function(eta){
-                    dnorm(x,mean = eta[1],sd = sqrt(1/eta[2]))*
-                        dnormalgamma(eta[1],eta[2])
-                }
-                ## direct calcualtion of predictivedistribution:
-                ## P(x|hyperparameter)=Int_{theta}P(x|theta)P(theta|hyperparameter)
-                ## integrate a scalar function over a multidimensional rectangle: library(cubature)
-                adaptIntegrate(f=prediction,lowerLimit = lowerLimit,upperLimit = upperLimit,maxEval = 10000)$integral
-            }))
-        }
-        else if(bpmethod=="mean"){
-            ## if x~gamma(shape=alpha,rate=beta), then mean(x)=alpha/beta
-            r_snapshot[,"ppredict"] <- dnorm(x,mean = r_snapshot[,"mu0"],sd = sqrt(r_snapshot[,"beta0"]/r_snapshot[,"alpha0"]))
-        }
+        ## if(bpmethod=="bruteforce"){
+        ##     r_snapshot[,"ppredict"] <- as.vector(apply(r_snapshot,1,function(l){
+        ##         ## density function of normal-gamma distribution
+        ##         dnormalgamma <- function(mu,tau){
+        ##             dnorm(mu,mean = l["mu0"],sd=sqrt(1/(l["k0"]*tau)))*
+        ##                 dgamma(tau,shape = l["alpha0"],rate = l["beta0"])
+        ##         }
+        ##         prediction <- function(eta){
+        ##             dnorm(x,mean = eta[1],sd = sqrt(1/eta[2]))*
+        ##                 dnormalgamma(eta[1],eta[2])
+        ##         }
+        ##         ## direct calcualtion of predictivedistribution:
+        ##         ## P(x|hyperparameter)=Int_{theta}P(x|theta)P(theta|hyperparameter)
+        ##         ## integrate a scalar function over a multidimensional rectangle: library(cubature)
+        ##         adaptIntegrate(f=prediction,lowerLimit = lowerLimit,upperLimit = upperLimit,maxEval = 10000)$integral
+        ##     }))
+        ## }
+        ## else if(bpmethod=="mean"){
+        
+        ## if x~gamma(shape=alpha,rate=beta), then mean(x)=alpha/beta
+        r_snapshot[,"ppredict"] <- if(model=="nng") dnorm(x,mean = r_snapshot[,"mu0"],sd = sqrt(r_snapshot[,"beta0"]/r_snapshot[,"alpha0"]))
+                                   else if(model=="pg") dpois(x,lambda = r_snapshot[,"alpha0"]/r_snapshot[,"beta0"])
+
         ## P(r+1,x_{1:t}) and P(0,x_{1:t})
         tmp <- r_snapshot[,"p"]*r_snapshot[,"ppredict"]
         r_snapshot[,"pgrow"] <- tmp*(1-hazard)
@@ -69,12 +78,15 @@ onlinechangepoint <- function(X,
         r_snapshot[,"r"] <- r_snapshot[,"r"]+1
         r_snapshot[,"p"] <- r_snapshot[,"pgrow"]
         ## update hyperparameters
-        r_snapshot[,"mu0"] <- (r_snapshot[,"k0"]*r_snapshot[,"mu0"]+x)/
-            (r_snapshot[,"k0",drop=TRUE]+1)
-        r_snapshot[,"alpha0"] <- r_snapshot[,"alpha0"]+1/2
-        r_snapshot[,"beta0"] <- r_snapshot[,"beta0"]+
-            r_snapshot[,"k0"]*(x-r_snapshot[,"mu0"])^2/2/(r_snapshot[,"k0"]+1)
-        r_snapshot[,"k0"] <- r_snapshot[,"k0"]+1
+
+        ## get posterior distributions
+        r_snapshot[,"mu0"] <- if(model=="nng") (r_snapshot[,"k0"]*r_snapshot[,"mu0"]+x)/(r_snapshot[,"k0",drop=TRUE]+1)
+        r_snapshot[,"alpha0"] <- if(model=="nng") r_snapshot[,"alpha0"]+1/2
+                                 else if(model=="pg") r_snapshot[,"alpha0"]+x
+        r_snapshot[,"beta0"] <- if(model=="nng"){r_snapshot[,"beta0"]+r_snapshot[,"k0"]*(x-r_snapshot[,"mu0"])^2/2/(r_snapshot[,"k0"]+1)}
+                                else if(model=="pg") r_snapshot[,"beta0"]+1
+        r_snapshot[,"k0"] <- if(model=="nng") r_snapshot[,"k0"]+1
+        
         ## 3. shrink
         r_snapshot <- rbind(
             matrix(c(0,sum(r_snapshot[,"pshrink"]),0,0,0,mu0,k0,alpha0,beta0,1),nrow = 1,dimnames=list(NULL,c("r","p","ppredict","pgrow","pshrink","mu0","k0","alpha0","beta0","prx"))),
