@@ -4,9 +4,11 @@ library(ggplot2)
 
 X <- c(rnorm(100,sd=0.5),rnorm(70,mean=5,sd=0.5),rnorm(70,mean = 2,sd=0.5),rnorm(70,sd=0.5),rnorm(70,mean = 7,sd=0.5))
 Y <- c(rnorm(100,sd=0.5),rnorm(70,sd=1),rnorm(70,sd=3),rnorm(70,sd=1),rnorm(70,sd=0.5))
-par(mfcol = c(2,1))
+Z <- c(rpois(100,lambda=5),rpois(70,lambda=10),rpois(70,lambda=30),rpois(70,lambda=10),rpois(70,lambda=5))
+par(mfcol = c(3,1))
 plot(X,type = "l")
 plot(Y,type = "l")
+plot(Z,type = "l")
 
 ## model: specifying model
 ##    nng:normal evidence and normal-gamma prior
@@ -31,7 +33,7 @@ onlinechangepoint <- function(X,
     hazard <- 1/lambda                  #constant hazard function(transition probability)
 
     if(model=="pg"){
-        if(any(X<=0)) stop("X must be integer greater than or equal to 1")
+        if(any(X<0)) stop("X must be integer greater than zero")
     }
     ## initialize
     x_snapshot <- 1                     #P(x_{1:t})
@@ -144,6 +146,15 @@ resY <- onlinechangepoint(Y,
                           bpmethod = "mean",
                           lambda=50, #exponential hazard
                           FILTER=1e-3)
+
+## online changepoint detection for series Z
+resZ <- onlinechangepoint(Z,
+                          model = "pg",
+                          alpha0=10,beta0=1,
+                          bpmethod = "mean",
+                          lambda=50, #exponential hazard
+                          FILTER=1e-3)
+
 
 ## multiplot() from R-cookbook
 # Multiple plot function
