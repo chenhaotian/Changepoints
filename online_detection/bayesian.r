@@ -1,15 +1,4 @@
 ## online bayesian-------------------------
-library(cubature)                       #integrate over a hyper rectangle
-library(ggplot2)
-
-X <- c(rnorm(100,sd=0.5),rnorm(70,mean=5,sd=0.5),rnorm(70,mean = 2,sd=0.5),rnorm(70,sd=0.5),rnorm(70,mean = 7,sd=0.5))
-Y <- c(rnorm(100,sd=0.5),rnorm(70,sd=1),rnorm(70,sd=3),rnorm(70,sd=1),rnorm(70,sd=0.5))
-Z <- c(rpois(100,lambda=5),rpois(70,lambda=10),rpois(70,lambda=30),rpois(70,lambda=10),rpois(70,lambda=5))
-par(mfcol = c(3,1))
-plot(X,type = "l")
-plot(Y,type = "l")
-plot(Z,type = "l")
-
 ## model: specifying model
 ##    nng:normal evidence and normal-gamma prior
 ##    pg: poisson evidence and gamma prior
@@ -27,11 +16,10 @@ onlinechangepoint <- function(X,
                               lowerLimit=c(-1,0),upperLimit=c(3,1e2),
                               lambda=1000, #exponential hazard
                               FILTER=1e-4){
-
+    ## require(cubature)                       #integrate over a hyper rectangle, no longer needed after removing 'integrate over (6)' part
     model <- match.arg(model)
     bpmethod <- match.arg(bpmethod)
     hazard <- 1/lambda                  #constant hazard function(transition probability)
-
     if(model=="pg"){
         if(any(X<0)) stop("X must be integer greater than zero")
     }
@@ -40,16 +28,15 @@ onlinechangepoint <- function(X,
     r_snapshot <- matrix(c(0,1,0,0,0,mu0,k0,alpha0,beta0,1),nrow = 1,
            dimnames=list(NULL,
                          c("r","p","ppredict","pgrow","pshrink","mu0","k0","alpha0","beta0","prx"))) #r: run length, p: un-normalized P(r_t,x_{1:t}), prx: normalized P(r_t|x_{1:t})
-
     res <- list()
-    
     pb <- txtProgressBar(min = 1,max = length(X),style = 3)
     pos <- 1
     
     ## online update
     for(x in X){
         ## 1. general calculation
-        
+
+        ## --------------------!!DELETED!!--------------------
         ## P(x_{t+1}|hyper)
         ## if(bpmethod=="bruteforce"){
         ##     r_snapshot[,"ppredict"] <- as.vector(apply(r_snapshot,1,function(l){
@@ -69,12 +56,13 @@ onlinechangepoint <- function(X,
         ##     }))
         ## }
         ## else if(bpmethod=="mean"){
+        ## --------------------!!DELETED!!--------------------
         
         ## if x~gamma(shape=alpha,rate=beta), then mean(x)=alpha/beta
-        r_snapshot[,"ppredict"] <- if(model=="nng") dnorm(x,mean = r_snapshot[,"mu0"],sd = sqrt(r_snapshot[,"beta0"]/r_snapshot[,"alpha0"])) else if(model=="pg") dpois(x,lambda = r_snapshot[,"alpha0"]/r_snapshot[,"beta0"])        
+        r_snapshot[,"ppredict"] <- if(model=="nng") dnorm(x,mean = r_snapshot[,"mu0"],sd = sqrt(r_snapshot[,"beta0"]/r_snapshot[,"alpha0"])) else if(model=="pg") dpois(x,lambda = r_snapshot[,"alpha0"]/r_snapshot[,"beta0"])
 
         ## P(r+1,x_{1:t}) and P(0,x_{1:t})
-        tmp <- r_snapshot[,"p"]*r_snapshot[,"ppredict"]
+        tmp <- r_snapshot[,"prx"]*r_snapshot[,"ppredict"]
         r_snapshot[,"pgrow"] <- tmp*(1-hazard)
         r_snapshot[,"pshrink"] <- tmp*hazard
         ## 2. grow
@@ -93,14 +81,6 @@ onlinechangepoint <- function(X,
             r_snapshot[,"alpha0"] <- r_snapshot[,"alpha0"]+x
             r_snapshot[,"beta0"] <- r_snapshot[,"beta0"]+1
         }
-        ## r_snapshot[,"mu0"] <- if(model=="nng") (r_snapshot[,"k0"]*r_snapshot[,"mu0"]+x)/(r_snapshot[,"k0",drop=TRUE]+1)
-        ##                       else if(model=="pg") r_snapshot[,"mu0"] #doesn't change
-        ## r_snapshot[,"alpha0"] <- if(model=="nng") r_snapshot[,"alpha0"]+1/2
-        ##                          else if(model=="pg") r_snapshot[,"alpha0"]+x
-        ## r_snapshot[,"beta0"] <- if(model=="nng") (r_snapshot[,"beta0"]+r_snapshot[,"k0"]*(x-r_snapshot[,"mu0"])^2/2/(r_snapshot[,"k0"]+1))
-        ##                         else if(model=="pg") r_snapshot[,"beta0"]+1
-        ## r_snapshot[,"k0"] <- if(model=="nng") r_snapshot[,"k0"]+1
-        ##                      else if(model=="pg") r_snapshot[,"k0"] #doesn't change
         
         ## 3. shrink
         r_snapshot <- rbind(
@@ -131,31 +111,6 @@ onlinechangepoint <- function(X,
     res
 }
 
-## online changepoint detection for series X
-resX <- onlinechangepoint(X,
-                          model = "nng",
-                          mu0=0.7,k0=1,alpha0=1/2,beta0=1,
-                          bpmethod = "mean", #the brute-force method is too time consuming
-                          lambda=50, #exponential hazard
-                          FILTER=1e-3)
-
-## online changepoint detection for series Y
-resY <- onlinechangepoint(Y,
-                          model = "nng",
-                          mu0=0,k0=0.5,alpha0=1/2,beta0=1,
-                          bpmethod = "mean",
-                          lambda=50, #exponential hazard
-                          FILTER=1e-3)
-
-## online changepoint detection for series Z
-resZ <- onlinechangepoint(Z,
-                          model = "pg",
-                          alpha0=10,beta0=1,
-                          bpmethod = "mean",
-                          lambda=50, #exponential hazard
-                          FILTER=1e-3)
-
-
 ## multiplot() from R-cookbook
 # Multiple plot function
 #
@@ -168,39 +123,39 @@ resZ <- onlinechangepoint(Z,
 # 3 will go all the way across the bottom.
 #
 multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
-  library(grid)
-
-  # Make a list from the ... arguments and plotlist
-  plots <- c(list(...), plotlist)
-
-  numPlots = length(plots)
-
-  # If layout is NULL, then use 'cols' to determine layout
-  if (is.null(layout)) {
-    # Make the panel
-    # ncol: Number of columns of plots
-    # nrow: Number of rows needed, calculated from # of cols
-    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
-                    ncol = cols, nrow = ceiling(numPlots/cols))
-  }
-
- if (numPlots==1) {
-    print(plots[[1]])
-
-  } else {
-    # Set up the page
-    grid.newpage()
-    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
-
-    # Make each plot, in the correct location
-    for (i in 1:numPlots) {
-      # Get the i,j matrix positions of the regions that contain this subplot
-      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
-
-      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
-                                      layout.pos.col = matchidx$col))
+    require(grid)
+    
+    ## Make a list from the ... arguments and plotlist
+    plots <- c(list(...), plotlist)
+    
+    numPlots = length(plots)
+    
+    ## If layout is NULL, then use 'cols' to determine layout
+    if (is.null(layout)) {
+        ## Make the panel
+        ## ncol: Number of columns of plots
+        ## nrow: Number of rows needed, calculated from # of cols
+        layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                         ncol = cols, nrow = ceiling(numPlots/cols))
     }
-  }
+    
+    if (numPlots==1) {
+        print(plots[[1]])
+        
+    } else {
+        ## Set up the page
+        grid.newpage()
+        pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+        
+        ## Make each plot, in the correct location
+        for (i in 1:numPlots) {
+            ## Get the i,j matrix positions of the regions that contain this subplot
+            matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+            
+            print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                            layout.pos.col = matchidx$col))
+        }
+    }
 }
 
 ## multi series merged plot
@@ -240,24 +195,54 @@ tsplot <- function(x){
     legend(x=round(N*0.7),y=max(x[,nlines]),legend=NAMES,lty=1:nlines)
 }
 
-## plot for Y (same as X)
-pd <- data.frame()
-for(i in 1:length(resY)){
-    pd <- rbind(pd,data.frame(x=i,y=resY[[i]][,"r"],alpha=resY[[i]][,"prx"]))
+## temp function for plotting original series and detected run-length distribution
+tmpplot <- function(resY,Y){
+    require(ggplot2)
+    pd <- data.frame()
+    for(i in 1:length(resY)){
+        pd <- rbind(pd,data.frame(x=i,y=resY[[i]][,"r"],alpha=resY[[i]][,"prx"]))
+    }
+    p1 <- ggplot(pd)+geom_point(aes(x=x,y=y,alpha=alpha),fill="black")+theme(legend.position = "none")
+    p2 <- ggplot(data.frame(x=1:length(Y),y=Y))+geom_line(aes(x=x,y=y))
+    multiplot(p2,p1,layout = matrix(c(1,2),nrow=2))
 }
-p1 <- ggplot(pd)+geom_point(aes(x=x,y=y,alpha=alpha),fill="black")+theme(legend.position = "none")
-p2 <- ggplot(data.frame(x=1:length(Y),y=Y))+geom_line(aes(x=x,y=y))
-multiplot(p2,p1,layout = matrix(c(1,2),nrow=2))
 
-pd <- data.frame()
-for(i in 1:length(resX)){
-    pd <- rbind(pd,data.frame(x=i,y=resX[[i]][,"r"],alpha=resX[[i]][,"prx"]))
-}
-p1 <- ggplot(pd)+geom_point(aes(x=x,y=y,alpha=alpha),fill="black")+theme(legend.position = "none")
-p2 <- ggplot(data.frame(x=1:length(X),y=X))+geom_line(aes(x=x,y=y))
-multiplot(p2,p1,layout = matrix(c(1,2),nrow=2))
+## examples----------------------------
+X <- c(rnorm(100,sd=0.5),rnorm(70,mean=5,sd=0.5),rnorm(70,mean = 2,sd=0.5),rnorm(70,sd=0.5),rnorm(70,mean = 7,sd=0.5))
+Y <- c(rnorm(100,sd=0.5),rnorm(70,sd=1),rnorm(70,sd=3),rnorm(70,sd=1),rnorm(70,sd=0.5))
+Z <- c(rpois(100,lambda=5),rpois(70,lambda=7),rpois(70,lambda=5),rpois(70,lambda=6),rpois(70,lambda=5))
+par(mfcol = c(3,1))
+plot(X,type = "l")
+plot(Y,type = "l")
+plot(Z,type = "l")
 
+## online changepoint detection for series X
+resX <- onlinechangepoint(X,
+                          model = "nng",
+                          mu0=0.7,k0=1,alpha0=1/2,beta0=1,
+                          bpmethod = "mean", #the brute-force method is too time consuming
+                          lambda=50, #exponential hazard
+                          FILTER=1e-3)
 
+## online changepoint detection for series Y
+resY <- onlinechangepoint(Y,
+                          model = "nng",
+                          mu0=0,k0=0.5,alpha0=1/2,beta0=1,
+                          bpmethod = "mean",
+                          lambda=50, #exponential hazard
+                          FILTER=1e-3)
+
+## online changepoint detection for series Z
+resZ <- onlinechangepoint(Z,
+                          model = "pg",
+                          alpha0=10,beta0=1,
+                          bpmethod = "mean",
+                          lambda=10, #exponential hazard
+                          FILTER=1e-3)
+
+tmpplot(resX,X)
+tmpplot(resY,Y)
+tmpplot(resZ,Z)
 
 ## price and volume data
 load("price_volume")

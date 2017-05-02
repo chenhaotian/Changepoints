@@ -11,11 +11,16 @@ An implementation of Ryan&David's bayesian online changepoint detection algorith
 **reference:**
 [Bayesian Online Changepoint Detection](http://arxiv.org/abs/0710.3742)
 
-###### Level change:
+##### Examples:
+###### 1. Level change(normal observation):
 Real changepoints: 100,170,240,310,380.
 Original data and inferred run length distribution:
 ![](https://raw.githubusercontent.com/chenhaotian/Changepoints/master/online_detection/online_level.png)
-###### Volatility change:
+###### 2. Level change(poisson observation):
+Real changepoints: 100,170,240,310,380.
+Original data and inferred run length distribution:
+![](https://raw.githubusercontent.com/chenhaotian/Changepoints/master/online_detection/online_poisson.png)
+###### 3. Volatility change(normal observation):
 Real changepoints: 100,170,240,310,380.
 Original data and inferred run length distribution:
 ![](https://raw.githubusercontent.com/chenhaotian/Changepoints/master/online_detection/online_variance.png)
