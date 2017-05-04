@@ -2,6 +2,10 @@
 ## model: specifying model
 ##    nng:normal evidence and normal-gamma prior
 ##    pg: poisson evidence and gamma prior
+##    g: gamma evidence
+##         ref: [1] DeGroot,Optimal Statistical Decisions, chapter 9
+##              [2] https://en.wikipedia.org/wiki/Gamma_distribution
+##              [3] Fink, D. 1995 A Compendium of Conjugate Priors. In progress report: Extension and enhancement of methods for setting data quality objectives. (DOE contract 95‑831).
 ## mu0, k0, alpha0, beta0: normal-gamma parameter, when model="nng"
 ## alpha0, beta0: gamma parameters when model="pg"(these two names alpha0 and beta0 are shared with "nng")
 ## bpmethod: bayesian prediction method. 'bruteforce': calculate the bayesian prediction probability directly by integrate over (6), Note:relevant code has been commented. 'mean': use the posterior mean of \eta to approximate the calculation.
