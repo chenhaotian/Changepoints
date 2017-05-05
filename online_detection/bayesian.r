@@ -13,6 +13,10 @@
 ##     int_{lowerLimit}^{upperLimit} {P(x_t|theta_t)P(theta_t|hyper_t)}
 ## lambda: parameter of the exponential hazard function.(transition probability)
 ## FILTER: if P(r_t|x_{1:t})<FILTER, this r_t will be omitted in the next calculation.
+##
+x <- rgamma(10000,shape=5,rate=5)
+library(MASS)    # may be loaded by default
+fitdistr(x, "gamma", start=list(shape=1, rate=1))$estimate
 onlinechangepoint <- function(X,
                               model=c("nng","pg"),
                               mu0=0,k0=1,alpha0=1/2,beta0=1,
