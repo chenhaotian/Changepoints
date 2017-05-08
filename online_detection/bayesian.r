@@ -1,7 +1,8 @@
 ## online bayesian-------------------------
 ## model: specifying model
-##    nng:normal evidence and normal-gamma prior
+##    nng: normal evidence and normal-gamma prior
 ##    pg: poisson evidence and gamma prior
+##    bb: binomial evidence and beta prior
 ##    g: gamma evidence
 ##         ref: [1] DeGroot,Optimal Statistical Decisions, chapter 9
 ##              [2] https://en.wikipedia.org/wiki/Gamma_distribution
