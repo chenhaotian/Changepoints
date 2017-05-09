@@ -131,86 +131,57 @@ do.call(rnorm,list(n=5,mean=20,sd=100))
 length(parameter list)==number of states
 initial state distribution
 transition matrix
-
+## Forward algorithm for HMM
+##     ref: [1] MLAPP p609-610, Algorithm 17.1
+## return only the state distributions(which is different from Algorithm 17.1)
+## transition: matrix, transition matrix, dim = NxN
+## observation.model: character, model of observation distribution(evidence distribution), "n" normal, "p" poisson, "b" binomial.
+## observation.params: list, observation model parameters for each state, length = N, each distributions' parameters must also be contained in a list.
+## pi: initial state distribution
 HMMforward <- function(X,
-                       model=c("nng","pg","bb"),
-                       mu0=0,k0=1,alpha0=1/2,beta0=1,
-                       transition=matrix() #transition matrix in finite state HMM
-                       FILTER=1e-4){
-    model <- match.arg(model)
-    if(model=="pg"){
-        if(any(X<0)) stop("X must be integer greater than or equal to zero")
-    }else if(model=="pg"){
-        if(any(X!=0&X!=1)) stop("X must be a sequence of 0s and 1s, 1 for head, 0 for tail")
+                       transition=matrix(), #transition matrix in finite state HMM
+                       observation.model=c("n","p","b"), #observation distribution
+                       observation.params=list(),        #observation parameters
+                       pi=numeric()    #initial state distribution
+                       ){
+    ## 1. parameter check
+    if(length(unique(c(dim(transition),length(observation.params),length(pi))))>1){
+        stop("dim(transition), length(observation.params) and length(pi) must equal to the number of hidden states")
     }
-    ## initialize
-    x_snapshot <- 1                     #P(x_{1:t})
-    r_snapshot <- matrix(c(0,1,0,0,0,mu0,k0,alpha0,beta0,1),nrow = 1,
-           dimnames=list(NULL,
-                         c("r","p","ppredict","pgrow","pshrink","mu0","k0","alpha0","beta0","prx"))) #r: run length, p: un-normalized P(r_t,x_{1:t}), prx: normalized P(r_t|x_{1:t})
-    res <- list()
-    pb <- txtProgressBar(min = 1,max = length(X),style = 3)
-    pos <- 1
-    
-    ## online update
-    for(x in X){
-        
-        ## if x~gamma(shape=alpha,rate=beta), then mean(x)=alpha/beta
-        ## if x~beta(shape1=alpha,shape2=beta), then mean(x)=alpha/(alpha+beta)
-        r_snapshot[,"ppredict"] <- if(model=="nng") dnorm(x,mean = r_snapshot[,"mu0"],sd = sqrt(r_snapshot[,"beta0"]/r_snapshot[,"alpha0"])) else if(model=="pg") dpois(x,lambda = r_snapshot[,"alpha0"]/r_snapshot[,"beta0"]) else if(model=="bb") dbinom(x,size = 1,prob = r_snapshot[,"alpha0"]/(r_snapshot[,"beta0"]+r_snapshot[,"alpha0"]))
-
-        ## P(r+1,x_{1:t}) and P(0,x_{1:t})
-        tmp <- r_snapshot[,"prx"]*r_snapshot[,"ppredict"]
-        r_snapshot[,"pgrow"] <- tmp*(1-hazard)
-        r_snapshot[,"pshrink"] <- tmp*hazard
-        ## 2. grow
-        ## move one step further
-        r_snapshot[,"r"] <- r_snapshot[,"r"]+1
-        r_snapshot[,"p"] <- r_snapshot[,"pgrow"]
-        ## update hyperparameters
-
-        ## get posterior distributions
-        if(model=="nng"){
-            r_snapshot[,"mu0"] <- (r_snapshot[,"k0"]*r_snapshot[,"mu0"]+x)/(r_snapshot[,"k0",drop=TRUE]+1)
-            r_snapshot[,"alpha0"] <- r_snapshot[,"alpha0"]+1/2
-            r_snapshot[,"beta0"] <- (r_snapshot[,"beta0"]+r_snapshot[,"k0"]*(x-r_snapshot[,"mu0"])^2/2/(r_snapshot[,"k0"]+1))
-            r_snapshot[,"k0"] <- r_snapshot[,"k0"]+1
-        }else if(model=="pg"){
-            r_snapshot[,"alpha0"] <- r_snapshot[,"alpha0"]+x
-            r_snapshot[,"beta0"] <- r_snapshot[,"beta0"]+1
-        }else if(model=="bb"){
-            if(x==0) r_snapshot[,"beta0"] <- r_snapshot[,"beta0"]+1
-            else r_snapshot[,"alpha0"] <- r_snapshot[,"alpha0"]+1 #x==1
-        }
-        
-        ## 3. shrink
-        r_snapshot <- rbind(
-            matrix(c(0,sum(r_snapshot[,"pshrink"]),0,0,0,mu0,k0,alpha0,beta0,1),nrow = 1,dimnames=list(NULL,c("r","p","ppredict","pgrow","pshrink","mu0","k0","alpha0","beta0","prx"))),
-            r_snapshot
-        )
-        ## 4. evidence P(x_{1:t}) and conditional probabiity P(r_t|x_{1:t})
-        x_snapshot <- sum(r_snapshot[,"p"])
-        r_snapshot[,"prx"] <- r_snapshot[,"p"]/x_snapshot
-        ## 5. filter low probability run lengths
-        r_snapshot <- r_snapshot[r_snapshot[,"prx"]>FILTER,,drop=FALSE]
-        
-        res <- c(res,list(r_snapshot[,c("r","prx")]))
-
-        if(any(is.na(r_snapshot))){
-            print(r_snapshot)
-            print(pos)
-            stop()
-        }
-
-        pos <- pos+1
-        setTxtProgressBar(pb,pos)
+    if(length(observation.params)==0) stop("missing observation.params")
+    if(unique(sapply(observation.params,class))!="list") stop("parameters for each observation distribution should also be contained in a list!")
+    observation.model <- match.arg(observation.model)
+    ## 2. preparation
+    ## subroutine
+    normalize <- function(l){
+        l/sum(l)
     }
-
-    ## res <- matrix(0,nrow = length(X),ncol = MAXlength+1) #result container
-    ## pos <- 1
+    N <- length(pi)                     #number of hidden states
+    a <- matrix(0,nrow = length(X),ncol = N) #output, state distributions
+    ## get observation distribution
+    observation <- switch(observation.model,
+                       n=dnorm,
+                       p=dpois,
+                       b=dbinom
+                       )
+    ## 3.initialize
+    evidence <- sapply(observation.params,function(l){
+        par <- c(list(x=X[1]),l)
+        do.call(observation,par)
+    },simplify = TRUE,USE.NAMES = FALSE)
+    a[1,] <- normalize(evidence*pi)
+    ## 4. main loop
+    pb <- txtProgressBar(min = 2,max = length(X),style = 3)
+    for(i in 2:length(X)){
+        evidence <- sapply(observation.params,function(l){
+            par <- c(list(x=X[i]),l)
+            do.call(observation,par)
+        },simplify = TRUE,USE.NAMES = FALSE)
+        a[i,] <- normalize(evidence*(base::crossprod(transition,a[i-1,])))
+        setTxtProgressBar(pb,i)
+    }
     cat("\n")
-    res
-    
+    a
 }
 
 ## multiplot() from R-cookbook
