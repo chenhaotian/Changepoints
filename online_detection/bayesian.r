@@ -3,23 +3,22 @@
 ##    nng: normal evidence and normal-gamma prior
 ##    pg: poisson evidence and gamma prior
 ##    bb: binomial evidence and beta prior
+##         ref: [1] https://en.wikipedia.org/wiki/Checking_whether_a_coin_is_fair
 ##    g: gamma evidence
 ##         ref: [1] DeGroot,Optimal Statistical Decisions, chapter 9
 ##              [2] https://en.wikipedia.org/wiki/Gamma_distribution
 ##              [3] Fink, D. 1995 A Compendium of Conjugate Priors. In progress report: Extension and enhancement of methods for setting data quality objectives. (DOE contract 95‑831).
 ## mu0, k0, alpha0, beta0: normal-gamma parameter, when model="nng"
-## alpha0, beta0: gamma parameters when model="pg"(these two names alpha0 and beta0 are shared with "nng")
+##          alpha0, beta0: gamma parameters when model="pg"(these two names alpha0 and beta0 are shared with "nng")
+##          alpha0, beta0: beta parameters when model="bb"
 ## bpmethod: bayesian prediction method. 'bruteforce': calculate the bayesian prediction probability directly by integrate over (6), Note:relevant code has been commented. 'mean': use the posterior mean of \eta to approximate the calculation.
 ## lower/upperLimit: only meaningful when bpmethod='bruteforce', specifying integrete limit of the parameters in the likelihood function. Use this limit to approximate the whole interval in calculating predictive probability:
 ##     int_{lowerLimit}^{upperLimit} {P(x_t|theta_t)P(theta_t|hyper_t)}
 ## lambda: parameter of the exponential hazard function.(transition probability)
 ## FILTER: if P(r_t|x_{1:t})<FILTER, this r_t will be omitted in the next calculation.
 ##
-x <- rgamma(10000,shape=5,rate=5)
-library(MASS)    # may be loaded by default
-fitdistr(x, "gamma", start=list(shape=1, rate=1))$estimate
 onlinechangepoint <- function(X,
-                              model=c("nng","pg"),
+                              model=c("nng","pg","bb"),
                               mu0=0,k0=1,alpha0=1/2,beta0=1,
                               bpmethod=c("mean","bruteforce"),
                               lowerLimit=c(-1,0),upperLimit=c(3,1e2),
@@ -30,7 +29,9 @@ onlinechangepoint <- function(X,
     bpmethod <- match.arg(bpmethod)
     hazard <- 1/lambda                  #constant hazard function(transition probability)
     if(model=="pg"){
-        if(any(X<0)) stop("X must be integer greater than zero")
+        if(any(X<0)) stop("X must be integer greater than or equal to zero")
+    }else if(model=="pg"){
+        if(any(X!=0&X!=1)) stop("X must be a sequence of 0s and 1s, 1 for head, 0 for tail")
     }
     ## initialize
     x_snapshot <- 1                     #P(x_{1:t})
@@ -68,7 +69,8 @@ onlinechangepoint <- function(X,
         ## --------------------!!DELETED!!--------------------
         
         ## if x~gamma(shape=alpha,rate=beta), then mean(x)=alpha/beta
-        r_snapshot[,"ppredict"] <- if(model=="nng") dnorm(x,mean = r_snapshot[,"mu0"],sd = sqrt(r_snapshot[,"beta0"]/r_snapshot[,"alpha0"])) else if(model=="pg") dpois(x,lambda = r_snapshot[,"alpha0"]/r_snapshot[,"beta0"])
+        ## if x~beta(shape1=alpha,shape2=beta), then mean(x)=alpha/(alpha+beta)
+        r_snapshot[,"ppredict"] <- if(model=="nng") dnorm(x,mean = r_snapshot[,"mu0"],sd = sqrt(r_snapshot[,"beta0"]/r_snapshot[,"alpha0"])) else if(model=="pg") dpois(x,lambda = r_snapshot[,"alpha0"]/r_snapshot[,"beta0"]) else if(model=="bb") dbinom(x,size = 1,prob = r_snapshot[,"alpha0"]/(r_snapshot[,"beta0"]+r_snapshot[,"alpha0"]))
 
         ## P(r+1,x_{1:t}) and P(0,x_{1:t})
         tmp <- r_snapshot[,"prx"]*r_snapshot[,"ppredict"]
@@ -89,6 +91,9 @@ onlinechangepoint <- function(X,
         }else if(model=="pg"){
             r_snapshot[,"alpha0"] <- r_snapshot[,"alpha0"]+x
             r_snapshot[,"beta0"] <- r_snapshot[,"beta0"]+1
+        }else if(model=="bb"){
+            if(x==0) r_snapshot[,"beta0"] <- r_snapshot[,"beta0"]+1
+            else r_snapshot[,"alpha0"] <- r_snapshot[,"alpha0"]+1 #x==1
         }
         
         ## 3. shrink
@@ -118,6 +123,94 @@ onlinechangepoint <- function(X,
     ## pos <- 1
     cat("\n")
     res
+}
+
+
+do.call(rnorm,list(n=5,mean=20,sd=100))
+
+length(parameter list)==number of states
+initial state distribution
+transition matrix
+
+HMMforward <- function(X,
+                       model=c("nng","pg","bb"),
+                       mu0=0,k0=1,alpha0=1/2,beta0=1,
+                       transition=matrix() #transition matrix in finite state HMM
+                       FILTER=1e-4){
+    model <- match.arg(model)
+    if(model=="pg"){
+        if(any(X<0)) stop("X must be integer greater than or equal to zero")
+    }else if(model=="pg"){
+        if(any(X!=0&X!=1)) stop("X must be a sequence of 0s and 1s, 1 for head, 0 for tail")
+    }
+    ## initialize
+    x_snapshot <- 1                     #P(x_{1:t})
+    r_snapshot <- matrix(c(0,1,0,0,0,mu0,k0,alpha0,beta0,1),nrow = 1,
+           dimnames=list(NULL,
+                         c("r","p","ppredict","pgrow","pshrink","mu0","k0","alpha0","beta0","prx"))) #r: run length, p: un-normalized P(r_t,x_{1:t}), prx: normalized P(r_t|x_{1:t})
+    res <- list()
+    pb <- txtProgressBar(min = 1,max = length(X),style = 3)
+    pos <- 1
+    
+    ## online update
+    for(x in X){
+        
+        ## if x~gamma(shape=alpha,rate=beta), then mean(x)=alpha/beta
+        ## if x~beta(shape1=alpha,shape2=beta), then mean(x)=alpha/(alpha+beta)
+        r_snapshot[,"ppredict"] <- if(model=="nng") dnorm(x,mean = r_snapshot[,"mu0"],sd = sqrt(r_snapshot[,"beta0"]/r_snapshot[,"alpha0"])) else if(model=="pg") dpois(x,lambda = r_snapshot[,"alpha0"]/r_snapshot[,"beta0"]) else if(model=="bb") dbinom(x,size = 1,prob = r_snapshot[,"alpha0"]/(r_snapshot[,"beta0"]+r_snapshot[,"alpha0"]))
+
+        ## P(r+1,x_{1:t}) and P(0,x_{1:t})
+        tmp <- r_snapshot[,"prx"]*r_snapshot[,"ppredict"]
+        r_snapshot[,"pgrow"] <- tmp*(1-hazard)
+        r_snapshot[,"pshrink"] <- tmp*hazard
+        ## 2. grow
+        ## move one step further
+        r_snapshot[,"r"] <- r_snapshot[,"r"]+1
+        r_snapshot[,"p"] <- r_snapshot[,"pgrow"]
+        ## update hyperparameters
+
+        ## get posterior distributions
+        if(model=="nng"){
+            r_snapshot[,"mu0"] <- (r_snapshot[,"k0"]*r_snapshot[,"mu0"]+x)/(r_snapshot[,"k0",drop=TRUE]+1)
+            r_snapshot[,"alpha0"] <- r_snapshot[,"alpha0"]+1/2
+            r_snapshot[,"beta0"] <- (r_snapshot[,"beta0"]+r_snapshot[,"k0"]*(x-r_snapshot[,"mu0"])^2/2/(r_snapshot[,"k0"]+1))
+            r_snapshot[,"k0"] <- r_snapshot[,"k0"]+1
+        }else if(model=="pg"){
+            r_snapshot[,"alpha0"] <- r_snapshot[,"alpha0"]+x
+            r_snapshot[,"beta0"] <- r_snapshot[,"beta0"]+1
+        }else if(model=="bb"){
+            if(x==0) r_snapshot[,"beta0"] <- r_snapshot[,"beta0"]+1
+            else r_snapshot[,"alpha0"] <- r_snapshot[,"alpha0"]+1 #x==1
+        }
+        
+        ## 3. shrink
+        r_snapshot <- rbind(
+            matrix(c(0,sum(r_snapshot[,"pshrink"]),0,0,0,mu0,k0,alpha0,beta0,1),nrow = 1,dimnames=list(NULL,c("r","p","ppredict","pgrow","pshrink","mu0","k0","alpha0","beta0","prx"))),
+            r_snapshot
+        )
+        ## 4. evidence P(x_{1:t}) and conditional probabiity P(r_t|x_{1:t})
+        x_snapshot <- sum(r_snapshot[,"p"])
+        r_snapshot[,"prx"] <- r_snapshot[,"p"]/x_snapshot
+        ## 5. filter low probability run lengths
+        r_snapshot <- r_snapshot[r_snapshot[,"prx"]>FILTER,,drop=FALSE]
+        
+        res <- c(res,list(r_snapshot[,c("r","prx")]))
+
+        if(any(is.na(r_snapshot))){
+            print(r_snapshot)
+            print(pos)
+            stop()
+        }
+
+        pos <- pos+1
+        setTxtProgressBar(pb,pos)
+    }
+
+    ## res <- matrix(0,nrow = length(X),ncol = MAXlength+1) #result container
+    ## pos <- 1
+    cat("\n")
+    res
+    
 }
 
 ## multiplot() from R-cookbook
@@ -255,10 +348,44 @@ tmpplot(resZ,Z)
 
 ## price and volume data
 load("price_volume")
+directions <- c(0,unname(sign(diff(pv[,"close"]))))
+directions[directions==0] <- NA
+directions <- zoo::na.locf(directions,na.rm = FALSE)
+pv <- cbind(pv,directions)
+pv <- na.omit(pv[pv[,"volume"]!=0,])
+
+pv[,"volume"] <- log(pv[,"volume"])
+me <- median(pv[,"volume"])
+O <- rep(unname(ifelse(pv[,"directions"]==1,1,0)),times = ceiling(pv[,"volume"]/me))
+
+unname(pv[,"volume"])*directions
+
+resO <- onlinechangepoint(O,
+                          model = "bb",
+                          alpha0=50,beta0=50,
+                          bpmethod = "mean",
+                          lambda=100, #exponential hazard
+                          FILTER=1e-3)
+
+tmpplot(resO,O)
+
+## generate coin toss sequence
+
 Z <- unname(pv[,"volume"])
 Z <- Z[Z!=0]
+
+
 poisson_lambda <- round(mean(pv[,"volume"]))
 plot(Z,type = "h")
+
+## use log to scale large numbers
+ceiling(log(Z)/median(log(Z)))
+
+## gamma related estimate
+x <- rgamma(10000,shape=5,rate=5)
+library(MASS)    # may be loaded by default
+fitdistr(x, "gamma", start=list(shape=1, rate=1))$estimate
+
 
 ## online changepoint detection for series Y
 resZ <- onlinechangepoint(Z,

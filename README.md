@@ -4,7 +4,8 @@
 
 ### 1. Online Changepoint Detection
 
-An implementation of Ryan&David's bayesian online changepoint detection algorithm.
+An implementation of Ryan&David's bayesian online changepoint detection algorithm. In the form of an infinite state HMM. The hidden states are the run lengths $r$ of current observation, $r$ can take integers from 0 to infinity:
+![](https://raw.githubusercontent.com/chenhaotian/Changepoints/master/online_detection/state_transition.png)
 
 **see the R code [here](https://github.com/chenhaotian/Changepoints/tree/master/online_detection)**
 
@@ -12,6 +13,7 @@ An implementation of Ryan&David's bayesian online changepoint detection algorith
 [Bayesian Online Changepoint Detection](http://arxiv.org/abs/0710.3742)
 
 ##### Examples:
+Here are several graphs showing the performance of this algorithm, the upper part of each graph is the observation series, the lower part is the infered run lengths.
 ###### 1. Level change(normal observation):
 Real changepoints: 100,170,240,310,380.
 Original data and inferred run length distribution:
