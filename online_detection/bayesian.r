@@ -126,24 +126,21 @@ onlinechangepoint <- function(X,
 }
 
 
-do.call(rnorm,list(n=5,mean=20,sd=100))
-
-length(parameter list)==number of states
-initial state distribution
-transition matrix
 ## Forward algorithm for HMM
 ##     ref: [1] MLAPP p609-610, Algorithm 17.1
 ## return only the state distributions(which is different from Algorithm 17.1)
+## X: numeric or matrix, observations, each row of X is an entry of a multi-variable observation
 ## transition: matrix, transition matrix, dim = NxN
-## observation.model: character, model of observation distribution(evidence distribution), "n" normal, "p" poisson, "b" binomial.
+## observation.model: character, model of observation distribution(evidence distribution), "n" normal, "p" poisson, "b" binomial. "m" multinomial.
 ## observation.params: list, observation model parameters for each state, length = N, each distributions' parameters must also be contained in a list.
 ## pi: initial state distribution
 HMMforward <- function(X,
                        transition=matrix(), #transition matrix in finite state HMM
-                       observation.model=c("n","p","b"), #observation distribution
+                       observation.model=c("n","p","b","m"), #observation distribution
                        observation.params=list(),        #observation parameters
                        pi=numeric()    #initial state distribution
                        ){
+    if(is.vector(X)) X <- matrix(X,ncol = 1)
     ## 1. parameter check
     if(length(unique(c(dim(transition),length(observation.params),length(pi))))>1){
         stop("dim(transition), length(observation.params) and length(pi) must equal to the number of hidden states")
@@ -157,24 +154,25 @@ HMMforward <- function(X,
         l/sum(l)
     }
     N <- length(pi)                     #number of hidden states
-    a <- matrix(0,nrow = length(X),ncol = N) #output, state distributions
+    a <- matrix(0,nrow = nrow(X),ncol = N) #output, state distributions
     ## get observation distribution
     observation <- switch(observation.model,
                        n=dnorm,
                        p=dpois,
-                       b=dbinom
+                       b=dbinom,
+                       m=dmultinom
                        )
     ## 3.initialize
     evidence <- sapply(observation.params,function(l){
-        par <- c(list(x=X[1]),l)
+        par <- c(list(x=X[1,]),l)
         do.call(observation,par)
     },simplify = TRUE,USE.NAMES = FALSE)
     a[1,] <- normalize(evidence*pi)
     ## 4. main loop
-    pb <- txtProgressBar(min = 2,max = length(X),style = 3)
-    for(i in 2:length(X)){
+    pb <- txtProgressBar(min = 2,max = nrow(X),style = 3)
+    for(i in 2:nrow(X)){
         evidence <- sapply(observation.params,function(l){
-            par <- c(list(x=X[i]),l)
+            par <- c(list(x=X[i,]),l)
             do.call(observation,par)
         },simplify = TRUE,USE.NAMES = FALSE)
         a[i,] <- normalize(evidence*(base::crossprod(transition,a[i-1,])))
@@ -280,7 +278,22 @@ tmpplot <- function(resY,Y){
     multiplot(p2,p1,layout = matrix(c(1,2),nrow=2))
 }
 
-## examples----------------------------
+## HMMforward examples------------------------------------
+
+## 1. 'occasionally dishonest casino' from MLAPP p607
+
+## initialize
+pi <- c(dice1=0.5,dice2=0.5)
+transition <- matrix(c(0.95,0.1,0.05,0.9),nrow = 2,ncol = 2,
+                     dimnames = list(c("dice1","dice2"),c("dice1","dice2")))
+observation.params <- list(
+    dice1=list(size=1,prob=c(1/6,1/6,1/6,1/6,1/6,1/6)),
+    dice2=list(size=1,prob=c(1/10,1/10,1/10,1/10,1/10,5/10))
+)
+## generate simulate samples
+
+
+## online changepoint examples----------------------------
 X <- c(rnorm(100,sd=0.5),rnorm(70,mean=5,sd=0.5),rnorm(70,mean = 2,sd=0.5),rnorm(70,sd=0.5),rnorm(70,mean = 7,sd=0.5))
 Y <- c(rnorm(100,sd=0.5),rnorm(70,sd=1),rnorm(70,sd=3),rnorm(70,sd=1),rnorm(70,sd=0.5))
 Z <- c(rpois(100,lambda=5),rpois(70,lambda=7),rpois(70,lambda=5),rpois(70,lambda=6),rpois(70,lambda=5))
