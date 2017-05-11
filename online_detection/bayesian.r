@@ -182,6 +182,54 @@ HMMforward <- function(X,
     a
 }
 
+HMMforward <- function(X,
+                       transition=matrix(), #transition matrix in finite state HMM
+                       observation.model=c("n","p","b","m"), #observation distribution
+                       observation.params=list(),        #observation parameters
+                       pi=numeric()    #initial state distribution
+                       ){
+    if(is.vector(X)) X <- matrix(X,ncol = 1)
+    ## 1. parameter check
+    if(length(unique(c(dim(transition),length(observation.params),length(pi))))>1){
+        stop("dim(transition), length(observation.params) and length(pi) must equal to the number of hidden states")
+    }
+    if(length(observation.params)==0) stop("missing observation.params")
+    if(unique(sapply(observation.params,class))!="list") stop("parameters for each observation distribution should also be contained in a list!")
+    observation.model <- match.arg(observation.model)
+    ## 2. preparation
+    ## subroutine
+    normalize <- function(l){
+        l/sum(l)
+    }
+    N <- length(pi)                     #number of hidden states
+    a <- matrix(0,nrow = nrow(X),ncol = N) #output, state distributions
+    ## get observation distribution
+    observation <- switch(observation.model,
+                       n=dnorm,
+                       p=dpois,
+                       b=dbinom,
+                       m=dmultinom
+                       )
+    ## 3.initialize
+    evidence <- sapply(observation.params,function(l){
+        par <- c(list(x=X[1,]),l)
+        do.call(observation,par)
+    },simplify = TRUE,USE.NAMES = FALSE)
+    a[1,] <- normalize(evidence*pi)
+    ## 4. main loop
+    pb <- txtProgressBar(min = 2,max = nrow(X),style = 3)
+    for(i in 2:nrow(X)){
+        evidence <- sapply(observation.params,function(l){
+            par <- c(list(x=X[i,]),l)
+            do.call(observation,par)
+        },simplify = TRUE,USE.NAMES = FALSE)
+        a[i,] <- normalize(evidence*(base::crossprod(transition,a[i-1,])))
+        setTxtProgressBar(pb,i)
+    }
+    cat("\n")
+    a
+}
+
 ## multiplot() from R-cookbook
 # Multiple plot function
 #
@@ -290,8 +338,30 @@ observation.params <- list(
     dice1=list(size=1,prob=c(1/6,1/6,1/6,1/6,1/6,1/6)),
     dice2=list(size=1,prob=c(1/10,1/10,1/10,1/10,1/10,5/10))
 )
-## generate simulate samples
-
+## simulate 300 samples
+X <- matrix(0,nrow = 300,ncol = 6)
+a <- character(300)
+state <- "dice1"
+for(i in 1:300){
+    if(state=="dice1"&runif(1)<=0.95){
+        ## do nothing
+    }else if(state=="dice1"){
+        state <- "dice2"
+    }else if(state=="dice2"&runif(1)<=0.9){
+        ## do nothing
+    }else{
+        state <- "dice1"
+    }
+    a[i] <- state
+    X[i,] <- drop(do.call(rmultinom,c(observation.params[[state]],list(n=1))))
+}
+## forward filter
+res <- HMMforward(X,transition,observation.model = "m",observation.params,pi)
+## plot
+tmp <- res[,2]
+tmp[tmp<=0.5] <- 0
+plot(tmp,type = "h")
+abline(v=which(a=="dice2"),col="gray")
 
 ## online changepoint examples----------------------------
 X <- c(rnorm(100,sd=0.5),rnorm(70,mean=5,sd=0.5),rnorm(70,mean = 2,sd=0.5),rnorm(70,sd=0.5),rnorm(70,mean = 7,sd=0.5))
