@@ -134,12 +134,12 @@ onlinechangepoint <- function(X,
 ## observation.model: character, model of observation distribution(evidence distribution), "n" normal, "p" poisson, "b" binomial. "m" multinomial.
 ## observation.params: list, observation model parameters for each state, length = N, each distributions' parameters must also be contained in a list.
 ## pi: initial state distribution
-HMMforward <- function(X,
-                       transition=matrix(), #transition matrix in finite state HMM
-                       observation.model=c("n","p","b","m"), #observation distribution
-                       observation.params=list(),        #observation parameters
-                       pi=numeric()    #initial state distribution
-                       ){
+HMMFwd <- function(X,
+                   transition=matrix(), #transition matrix in finite state HMM
+                   observation.model=c("n","p","b","m"), #observation distribution
+                   observation.params=list(),        #observation parameters
+                   pi=numeric()    #initial state distribution
+                   ){
     if(is.vector(X)) X <- matrix(X,ncol = 1)
     ## 1. parameter check
     if(length(unique(c(dim(transition),length(observation.params),length(pi))))>1){
@@ -182,12 +182,13 @@ HMMforward <- function(X,
     a
 }
 
-HMMforward <- function(X,
-                       transition=matrix(), #transition matrix in finite state HMM
-                       observation.model=c("n","p","b","m"), #observation distribution
-                       observation.params=list(),        #observation parameters
-                       pi=numeric()    #initial state distribution
-                       ){
+## Forward-Backword algorithm for HMM
+HMMFwdBack <- function(X,
+                   transition=matrix(), #transition matrix in finite state HMM
+                   observation.model=c("n","p","b","m"), #observation distribution
+                   observation.params=list(),        #observation parameters
+                   pi=numeric()    #initial state distribution
+                   ){
     if(is.vector(X)) X <- matrix(X,ncol = 1)
     ## 1. parameter check
     if(length(unique(c(dim(transition),length(observation.params),length(pi))))>1){
@@ -202,7 +203,11 @@ HMMforward <- function(X,
         l/sum(l)
     }
     N <- length(pi)                     #number of hidden states
-    a <- matrix(0,nrow = nrow(X),ncol = N) #output, state distributions
+    T <- nrow(X)                        #number of observations
+    evidence <- matrix(0,nrow = T,ncol = N) #evidence probabilities for each state
+    a <- matrix(0,nrow = T,ncol = N) #output, forward state distributions
+    b <- matrix(0,nrow = T,ncol = N) #output, backward state result
+    g <- matrix(0,nrow = T,ncol = N) #output, smoothed state distribution, g \propto a*b
     ## get observation distribution
     observation <- switch(observation.model,
                        n=dnorm,
@@ -210,24 +215,46 @@ HMMforward <- function(X,
                        b=dbinom,
                        m=dmultinom
                        )
-    ## 3.initialize
-    evidence <- sapply(observation.params,function(l){
+
+    ## Forward begin---------------------------------------------------------
+    ## this part is the same with HMMFwd()
+    ## 3.initialize forward filter
+    evidence[1,] <- sapply(observation.params,function(l){
         par <- c(list(x=X[1,]),l)
         do.call(observation,par)
     },simplify = TRUE,USE.NAMES = FALSE)
-    a[1,] <- normalize(evidence*pi)
-    ## 4. main loop
-    pb <- txtProgressBar(min = 2,max = nrow(X),style = 3)
-    for(i in 2:nrow(X)){
-        evidence <- sapply(observation.params,function(l){
+    a[1,] <- normalize(evidence[1,]*pi)
+    ## 4. forward loop
+    cat("forward filtering...\n")
+    pb <- txtProgressBar(min = 2,max = T,style = 3)
+    for(i in 2:T){
+        evidence[i,] <- sapply(observation.params,function(l){
             par <- c(list(x=X[i,]),l)
             do.call(observation,par)
         },simplify = TRUE,USE.NAMES = FALSE)
-        a[i,] <- normalize(evidence*(base::crossprod(transition,a[i-1,])))
+        a[i,] <- normalize(evidence[i,]*(base::crossprod(transition,a[i-1,])))
         setTxtProgressBar(pb,i)
     }
     cat("\n")
-    a
+    ## Forward end-----------------------------------------------------------
+
+    ## Backward begin--------------------------------------------------------
+    b[T,] <- 1
+    ## 5. backward loop
+    cat("backward smoothing...\n")
+    pb <- txtProgressBar(min = 1,max = T-1,style = 3)
+    for(i in (T-1):1){
+        b[i,] <- unname(drop(
+                     transition%*%drop(evidence[i+1,]*b[i+1,])
+                 ))
+        setTxtProgressBar(pb,T-i)
+    }
+    cat("\n done\n")
+    ## Backward end----------------------------------------------------------
+
+    ## Smoothing-------------------------------------------------------------
+    g <- t(apply(a*b,MARGIN = 1,normalize))
+    invisible(list(a=a,b=b,g=g))
 }
 
 ## multiplot() from R-cookbook
@@ -326,7 +353,7 @@ tmpplot <- function(resY,Y){
     multiplot(p2,p1,layout = matrix(c(1,2),nrow=2))
 }
 
-## HMMforward examples------------------------------------
+## HMMFwd examples------------------------------------
 
 ## 1. 'occasionally dishonest casino' from MLAPP p607
 
@@ -356,11 +383,17 @@ for(i in 1:300){
     X[i,] <- drop(do.call(rmultinom,c(observation.params[[state]],list(n=1))))
 }
 ## forward filter
-res <- HMMforward(X,transition,observation.model = "m",observation.params,pi)
+res <- HMMFwd(X,transition,observation.model = "m",observation.params,pi)
+res2 <- HMMFwdBack(X,transition,observation.model = "m",observation.params,pi)$g
 ## plot
 tmp <- res[,2]
 tmp[tmp<=0.5] <- 0
 plot(tmp,type = "h")
+abline(v=which(a=="dice2"),col="gray")
+
+tmp2 <- res2[,2]
+tmp2[tmp2<=0.5] <- 0
+plot(tmp2,type = "h")
 abline(v=which(a=="dice2"),col="gray")
 
 ## online changepoint examples----------------------------
