@@ -125,7 +125,6 @@ onlinechangepoint <- function(X,
     res
 }
 
-
 ## Forward algorithm for HMM
 ##     ref: [1] MLAPP p609-610, Algorithm 17.1
 ## return only the state distributions(which is different from Algorithm 17.1)
@@ -466,7 +465,7 @@ poisson_lambda <- round(mean(pv[,"volume"]))
 plot(Z,type = "h")
 
 ## use log to scale large numbers
-ceiling(log(Z)/median(log(Z)))
+Z <- ceiling(log(Z)/median(log(Z)))
 
 ## gamma related estimate
 x <- rgamma(10000,shape=5,rate=5)
