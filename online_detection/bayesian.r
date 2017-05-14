@@ -384,7 +384,7 @@ for(i in 1:300){
 ## forward filter
 res <- HMMFwd(X,transition,observation.model = "m",observation.params,pi)
 res2 <- HMMFwdBack(X,transition,observation.model = "m",observation.params,pi)$g
-## plot
+ ## plot
 tmp <- res[,2]
 tmp[tmp<=0.5] <- 0
 plot(tmp,type = "h")
@@ -393,7 +393,7 @@ abline(v=which(a=="dice2"),col="gray")
 tmp2 <- res2[,2]
 tmp2[tmp2<=0.5] <- 0
 plot(tmp2,type = "h")
-abline(v=which(a=="dice2"),col="gray")
+abline(v=which (a=="dice2"),col="gray")
 
 ## online changepoint examples----------------------------
 X <- c(rnorm(100,sd=0.5),rnorm(70,mean=5,sd=0.5),rnorm(70,mean = 2,sd=0.5),rnorm(70,sd=0.5),rnorm(70,mean = 7,sd=0.5))
