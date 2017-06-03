@@ -1,5 +1,12 @@
 # Changepoints
 
+
+## Table of Contents
+1. [Online Changepoint Detection](#Online Changepoint Detection)
+1.1. [Examples:](#Examples:)
+1.2. [Definition:](#Definition:)
+1.3. [Basic Principle:](#Basic Principle:)
+
 [TOC "float:left"]
 
 ### 1. Online Changepoint Detection
@@ -8,6 +15,84 @@ An implementation of Ryan&David's bayesian online changepoint detection algorith
 ![](https://raw.githubusercontent.com/chenhaotian/Changepoints/master/online_detection/state_transition.png)
 
 **see the R code [here](https://github.com/chenhaotian/Changepoints/tree/master/online_detection)**
+
+```R
+onlinechangepoint <- function(X,
+                              model=c("nng","pg","bb"),
+                              mu0=0,k0=1,alpha0=1/2,beta0=1,
+                              bpmethod=c("mean","bruteforce"),
+                              lowerLimit=c(-1,0),upperLimit=c(3,1e2),
+                              lambda=1000, #exponential hazard
+                              FILTER=1e-4){
+    ## require(cubature)                       #integrate over a hyper rectangle, no longer needed after removing 'integrate over (6)' part
+    model <- match.arg(model)
+    bpmethod <- match.arg(bpmethod)
+    hazard <- 1/lambda                  #constant hazard function(transition probability)
+    if(model=="pg"){
+        if(any(X<0)) stop("X must be integer greater than or equal to zero")
+    }else if(model=="pg"){
+        if(any(X!=0&X!=1)) stop("X must be a sequence of 0s and 1s, 1 for head, 0 for tail")
+    }
+    ## initialize
+    x_snapshot <- 1                     #P(x_{1:t})
+    r_snapshot <- matrix(c(0,1,0,0,0,mu0,k0,alpha0,beta0,1),nrow = 1,
+           dimnames=list(NULL,
+                         c("r","p","ppredict","pgrow","pshrink","mu0","k0","alpha0","beta0","prx"))) #r: run length, p: un-normalized P(r_t,x_{1:t}), prx: normalized P(r_t|x_{1:t})
+    res <- list()
+    pb <- txtProgressBar(min = 1,max = length(X),style = 3)
+    pos <- 1
+    ## online update
+    for(x in X){
+        ## if x~gamma(shape=alpha,rate=beta), then mean(x)=alpha/beta
+        ## if x~beta(shape1=alpha,shape2=beta), then mean(x)=alpha/(alpha+beta)
+        r_snapshot[,"ppredict"] <- if(model=="nng") dnorm(x,mean = r_snapshot[,"mu0"],sd = sqrt(r_snapshot[,"beta0"]/r_snapshot[,"alpha0"])) else if(model=="pg") dpois(x,lambda = r_snapshot[,"alpha0"]/r_snapshot[,"beta0"]) else if(model=="bb") dbinom(x,size = 1,prob = r_snapshot[,"alpha0"]/(r_snapshot[,"beta0"]+r_snapshot[,"alpha0"]))
+
+        ## P(r+1,x_{1:t}) and P(0,x_{1:t})
+        tmp <- r_snapshot[,"prx"]*r_snapshot[,"ppredict"]
+        r_snapshot[,"pgrow"] <- tmp*(1-hazard)
+        r_snapshot[,"pshrink"] <- tmp*hazard
+        ## 2. grow
+        ## move one step further
+        r_snapshot[,"r"] <- r_snapshot[,"r"]+1
+        r_snapshot[,"p"] <- r_snapshot[,"pgrow"]
+        ## update hyperparameters
+
+        ## get posterior distributions
+        if(model=="nng"){
+            r_snapshot[,"mu0"] <- (r_snapshot[,"k0"]*r_snapshot[,"mu0"]+x)/(r_snapshot[,"k0",drop=TRUE]+1)
+            r_snapshot[,"alpha0"] <- r_snapshot[,"alpha0"]+1/2
+            r_snapshot[,"beta0"] <- (r_snapshot[,"beta0"]+r_snapshot[,"k0"]*(x-r_snapshot[,"mu0"])^2/2/(r_snapshot[,"k0"]+1))
+            r_snapshot[,"k0"] <- r_snapshot[,"k0"]+1
+        }else if(model=="pg"){
+            r_snapshot[,"alpha0"] <- r_snapshot[,"alpha0"]+x
+            r_snapshot[,"beta0"] <- r_snapshot[,"beta0"]+1
+        }else if(model=="bb"){
+            if(x==0) r_snapshot[,"beta0"] <- r_snapshot[,"beta0"]+1
+            else r_snapshot[,"alpha0"] <- r_snapshot[,"alpha0"]+1 #x==1
+        }
+        ## 3. shrink
+        r_snapshot <- rbind(
+            matrix(c(0,sum(r_snapshot[,"pshrink"]),0,0,0,mu0,k0,alpha0,beta0,1),nrow = 1,dimnames=list(NULL,c("r","p","ppredict","pgrow","pshrink","mu0","k0","alpha0","beta0","prx"))),
+            r_snapshot
+        )
+        ## 4. evidence P(x_{1:t}) and conditional probabiity P(r_t|x_{1:t})
+        x_snapshot <- sum(r_snapshot[,"p"])
+        r_snapshot[,"prx"] <- r_snapshot[,"p"]/x_snapshot
+        ## 5. filter low probability run lengths
+        r_snapshot <- r_snapshot[r_snapshot[,"prx"]>FILTER,,drop=FALSE]
+        res <- c(res,list(r_snapshot[,c("r","prx")]))
+        if(any(is.na(r_snapshot))){
+            print(r_snapshot)
+            print(pos)
+            stop()
+        }
+        pos <- pos+1
+        setTxtProgressBar(pb,pos)
+    }
+    cat("\n")
+    res
+}
+```
 
 **reference:**
 [Bayesian Online Changepoint Detection](http://arxiv.org/abs/0710.3742)
