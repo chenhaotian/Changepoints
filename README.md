@@ -1,127 +1,45 @@
-# Changepoints
+# Bayesian online change point detection
+An R implementation of the paper: Bayesian Online Changepoint Detection(Ryan Prescott Adams and David J.C. MacKay 2007), **with derivation process explanations, additional conjugate distributions and examples,** the following chapters will cover:
++ [Basic idea and function usage](#usage)
++ [Derivation process explanations](#derivation)
++ Normal evidence distribution and normal-gamma prior + [examples](#examples)
++ Poisson evidence distribution and gamma prior + examples
++ Binomial evidence distribution and beta prior + examples
 
-
-## Table of Contents
-1. [Online Changepoint Detection](#Online Changepoint Detection)
-1.1. [Examples:](#Examples:)
-1.2. [Definition:](#Definition:)
-1.3. [Basic Principle:](#Basic Principle:)
-
-[TOC "float:left"]
-
-### 1. Online Changepoint Detection
-
-An implementation of Ryan&David's bayesian online changepoint detection algorithm. In the form of an infinite state HMM. The hidden states are the run lengths $r$ of current observation, $r$ can take integers from 0 to infinity:
-![](https://raw.githubusercontent.com/chenhaotian/Changepoints/master/online_detection/state_transition.png)
-
-**see the R code [here](https://github.com/chenhaotian/Changepoints/tree/master/online_detection)**
-
+## Usage
+Load the function `onlinechangepoint()` directly from source:
 ```R
-onlinechangepoint <- function(X,
-                              model=c("nng","pg","bb"),
-                              mu0=0,k0=1,alpha0=1/2,beta0=1,
-                              bpmethod=c("mean","bruteforce"),
-                              lowerLimit=c(-1,0),upperLimit=c(3,1e2),
-                              lambda=1000, #exponential hazard
-                              FILTER=1e-4){
-    ## require(cubature)                       #integrate over a hyper rectangle, no longer needed after removing 'integrate over (6)' part
-    model <- match.arg(model)
-    bpmethod <- match.arg(bpmethod)
-    hazard <- 1/lambda                  #constant hazard function(transition probability)
-    if(model=="pg"){
-        if(any(X<0)) stop("X must be integer greater than or equal to zero")
-    }else if(model=="pg"){
-        if(any(X!=0&X!=1)) stop("X must be a sequence of 0s and 1s, 1 for head, 0 for tail")
-    }
-    ## initialize
-    x_snapshot <- 1                     #P(x_{1:t})
-    r_snapshot <- matrix(c(0,1,0,0,0,mu0,k0,alpha0,beta0,1),nrow = 1,
-           dimnames=list(NULL,
-                         c("r","p","ppredict","pgrow","pshrink","mu0","k0","alpha0","beta0","prx"))) #r: run length, p: un-normalized P(r_t,x_{1:t}), prx: normalized P(r_t|x_{1:t})
-    res <- list()
-    pb <- txtProgressBar(min = 1,max = length(X),style = 3)
-    pos <- 1
-    ## online update
-    for(x in X){
-        ## if x~gamma(shape=alpha,rate=beta), then mean(x)=alpha/beta
-        ## if x~beta(shape1=alpha,shape2=beta), then mean(x)=alpha/(alpha+beta)
-        r_snapshot[,"ppredict"] <- if(model=="nng") dnorm(x,mean = r_snapshot[,"mu0"],sd = sqrt(r_snapshot[,"beta0"]/r_snapshot[,"alpha0"])) else if(model=="pg") dpois(x,lambda = r_snapshot[,"alpha0"]/r_snapshot[,"beta0"]) else if(model=="bb") dbinom(x,size = 1,prob = r_snapshot[,"alpha0"]/(r_snapshot[,"beta0"]+r_snapshot[,"alpha0"]))
-
-        ## P(r+1,x_{1:t}) and P(0,x_{1:t})
-        tmp <- r_snapshot[,"prx"]*r_snapshot[,"ppredict"]
-        r_snapshot[,"pgrow"] <- tmp*(1-hazard)
-        r_snapshot[,"pshrink"] <- tmp*hazard
-        ## 2. grow
-        ## move one step further
-        r_snapshot[,"r"] <- r_snapshot[,"r"]+1
-        r_snapshot[,"p"] <- r_snapshot[,"pgrow"]
-        ## update hyperparameters
-
-        ## get posterior distributions
-        if(model=="nng"){
-            r_snapshot[,"mu0"] <- (r_snapshot[,"k0"]*r_snapshot[,"mu0"]+x)/(r_snapshot[,"k0",drop=TRUE]+1)
-            r_snapshot[,"alpha0"] <- r_snapshot[,"alpha0"]+1/2
-            r_snapshot[,"beta0"] <- (r_snapshot[,"beta0"]+r_snapshot[,"k0"]*(x-r_snapshot[,"mu0"])^2/2/(r_snapshot[,"k0"]+1))
-            r_snapshot[,"k0"] <- r_snapshot[,"k0"]+1
-        }else if(model=="pg"){
-            r_snapshot[,"alpha0"] <- r_snapshot[,"alpha0"]+x
-            r_snapshot[,"beta0"] <- r_snapshot[,"beta0"]+1
-        }else if(model=="bb"){
-            if(x==0) r_snapshot[,"beta0"] <- r_snapshot[,"beta0"]+1
-            else r_snapshot[,"alpha0"] <- r_snapshot[,"alpha0"]+1 #x==1
-        }
-        ## 3. shrink
-        r_snapshot <- rbind(
-            matrix(c(0,sum(r_snapshot[,"pshrink"]),0,0,0,mu0,k0,alpha0,beta0,1),nrow = 1,dimnames=list(NULL,c("r","p","ppredict","pgrow","pshrink","mu0","k0","alpha0","beta0","prx"))),
-            r_snapshot
-        )
-        ## 4. evidence P(x_{1:t}) and conditional probabiity P(r_t|x_{1:t})
-        x_snapshot <- sum(r_snapshot[,"p"])
-        r_snapshot[,"prx"] <- r_snapshot[,"p"]/x_snapshot
-        ## 5. filter low probability run lengths
-        r_snapshot <- r_snapshot[r_snapshot[,"prx"]>FILTER,,drop=FALSE]
-        res <- c(res,list(r_snapshot[,c("r","prx")]))
-        if(any(is.na(r_snapshot))){
-            print(r_snapshot)
-            print(pos)
-            stop()
-        }
-        pos <- pos+1
-        setTxtProgressBar(pb,pos)
-    }
-    cat("\n")
-    res
-}
+source("https://raw.githubusercontent.com/chenhaotian/Changepoints/master/online_detection/bayesian.r")
 ```
+Parameters:
+```R
+args(onlinechangepoint)
+```
++ X: numeric, observations.
++ model: character, specifying model
+	+ nng: normal evidence(observation distribution) and normal-gamma prior
+	+ pg: poisson evidence and gamma prior
+	+ bb: binomial evidence and beta prior
+	+ g: gamma evidence
++ mu0, k0, alpha0, beta0: numeric, specifying hyper parameters.
+	+ mu0, k0, alpha0, beta0: normal-gamma parameter, when model="nng"
+	+ alpha0, beta0: gamma parameters when model="pg"(these two names alpha0 and beta0 are shared with "nng")
+	+ alpha0, beta0: beta parameters when model="bb"
++ lambda: numeric, parameter of the exponential hazard function.(act as transition distribution)
++ FILTER: if `P(r_t|x_{1:t})<FILTER`, this `r_t` will be omitted in next round of online calculation.
 
-**reference:**
-[Bayesian Online Changepoint Detection](http://arxiv.org/abs/0710.3742)
+See [Examples](#examples) below for detailed explanation in function usage.
 
-##### Examples:
-Here are several graphs showing the performance of this algorithm, the upper part of each graph is the observation series, the lower part is the infered run lengths.
-###### 1. Level change(normal observation):
-Real changepoints: 100,170,240,310,380.
-Original data and inferred run length distribution:
-![](https://raw.githubusercontent.com/chenhaotian/Changepoints/master/online_detection/online_level.png)
-###### 2. Level change(poisson observation):
-Real changepoints: 100,170,240,310,380.
-Original data and inferred run length distribution:
-![](https://raw.githubusercontent.com/chenhaotian/Changepoints/master/online_detection/online_poisson.png)
-###### 3. Volatility change(normal observation):
-Real changepoints: 100,170,240,310,380.
-Original data and inferred run length distribution:
-![](https://raw.githubusercontent.com/chenhaotian/Changepoints/master/online_detection/online_variance.png)
-
-###### Definition:
-+ $r_t$ is the time lenght since last changepoint, $x_{t}^{(r)}$ denote the data sets associated with run $r_t$. **As $r$ may be zero, $x^{(r)}$ may be empty**.
+## Derivation
+Adams&Mackay's paper interpret the change point detection problem with an infinite state hidden markov model. Hereby the definitions:
++ $r_t$ is the time lenght since last changepoint, $x_{t}^{(r)}$ denote the data sets associated with run $r_t$. **As $r$ may be zero, $x^{(r)}$ may be empty**.The hidden states are the run lengths $r$ of current observation, they evolve as the following way:
+![](https://raw.githubusercontent.com/chenhaotian/Changepoints/master/online_detection/state_transition.png)
 + For each parition $\rho$, the data within it are i.i.d. from some probability distribution $P (x_t | \eta_\rho)$
 + The discrete **a priori**(Latin phrase, means 'from the earlier',contrast to **a posteriori**,'from the latter') probability distribution over the interval between changepoints is denoted as $P_{gap}(g)$, i.e. the probability of current run ending up at length $g$.(recall geometric distribution)
 + Predictive distribution $P(x_{t+1}|r_t,x_t^{(r)})$
   Posterior distribution $P(r_t|x_{1:t})$
   Joint distribution $P(r_t,x_{1:t})$
 
-
-###### Basic Principle:
 With the above definitions, our goal here is to <span style="color:darkred">**recursively**(use recusive methods for the purpose of online calculation)</span> compute the probability distribution of **the length of the current “run”,** or time since the last changepoint, denote this **posterior distribution** as $P(r_t|x_{1:t})$
 According to bayesian therom,
 $$P(r_t|x_{1:t})=\frac{P(r_t,x_{1:t})}{P(x_{1:t})}, \tag{1}$$
@@ -187,51 +105,60 @@ $$
 \int_{\eta} p(x_t|\eta)p(\eta|x_{1:t-1})\approx p(x_t|E(\eta|x_{1:t-1}))
 $$
 
+## Examples
+Here are several examples in applying the algorithm.
+###### 1. Level change(normal observation):
+Different mean and same volatility.
+```R
+## Generate random samples with real changepoints: 100,170,240,310,380
+X <- c(rnorm(100,sd=0.5),rnorm(70,mean=5,sd=0.5),rnorm(70,mean = 2,sd=0.5),rnorm(70,sd=0.5),rnorm(70,mean = 7,sd=0.5))
+## online changepoint detection for series X
+resX <- onlinechangepoint(X,
+                          model = "nng",
+                          mu0=0.7,k0=1,alpha0=1/2,beta0=1, #initial parameters
+                          bpmethod = "mean",
+                          lambda=50, #exponential hazard
+                          FILTER=1e-3)
+tmpplot(resX,X) # visualize original data and run length distribution
+```
+The last statement `tmpplot(rexX,X)` produce a graph comparing the original data(upper part) and the run lengthes(lower part):
+![](https://raw.githubusercontent.com/chenhaotian/Changepoints/master/online_detection/online_level.png)
+###### 2. Volatility change(normal observation):
+Different volatility and same mean.
+```R
+## Generate random samples with real changepoints: 100,170,240,310,380.
+Y <- c(rnorm(100,sd=0.5),rnorm(70,sd=1),rnorm(70,sd=3),rnorm(70,sd=1),rnorm(70,sd=0.5))
+## online changepoint detection for series Y
+resY <- onlinechangepoint(Y,
+                          model = "nng",
+                          mu0=0,k0=0.5,alpha0=1/2,beta0=1,
+                          bpmethod = "mean",
+                          lambda=50, #exponential hazard
+                          FILTER=1e-3)
+tmpplot(resY,Y)
+```
+Original data and inferred run length distribution:
+![](https://raw.githubusercontent.com/chenhaotian/Changepoints/master/online_detection/online_variance.png)
+###### 3. Level change(poisson observation):
+```R
+Z <- c(rpois(100,lambda=5),rpois(70,lambda=7),rpois(70,lambda=5),rpois(70,lambda=6),rpois(70,lambda=5))
+## online changepoint detection for series Z
+resZ <- onlinechangepoint(Z,
+                          model = "pg",
+                          alpha0=10,beta0=1,
+                          bpmethod = "mean",
+                          lambda=10, #exponential hazard
+                          FILTER=1e-3)
+tmpplot(resZ,Z)
+```
+Original data and inferred run length distribution:
+![](https://raw.githubusercontent.com/chenhaotian/Changepoints/master/online_detection/online_poisson.png)
 
 
-### 2. Level&Trend Change(CUMSUM)
-An implementation of Page's mean shift detection algorithm(CUMSUM).
-
-**see the R code [here](https://github.com/chenhaotian/Changepoints/tree/master/leveltrend_change)**
-
-**reference:**
-[Changepoint Detection in Climate Time Series with Long-Term Trends](http://journals.ametsoc.org/doi/full/10.1175/JCLI-D-12-00704.1)
-
-##### Raw data
-Real change point positions: 1000,1700,2400,3100
-![](https://raw.githubusercontent.com/chenhaotian/Changepoints/master/leveltrend_change/raw.png)
-##### Detected level and trend
-Detected change point positions: 996,1695,2400,3104
-![](https://raw.githubusercontent.com/chenhaotian/Changepoints/master/leveltrend_change/level.png)
-![](https://raw.githubusercontent.com/chenhaotian/Changepoints/master/leveltrend_change/trend.png)
-
-### 3. Burst Detection
-
-### 4. Distrubution Change
-
-### 5. Structural Change
-An implementation of  Makram Talih's graph structural change detection algorithm.
-
-**see the R code [here](https://github.com/chenhaotian/Changepoints/tree/master/structural_change)**
-
-**reference:**
-[Structural learning with time‐varying components: tracking the cross‐section of financial time series](https://www.researchgate.net/publication/4914219_Structural_learning_with_time-varying_components_Tracking_the_crosssection_of_financial_time_series)
-
-##### Raw data
-
-![](https://raw.githubusercontent.com/chenhaotian/Changepoints/master/structural_change/Screenshot_from_2015-04-30_16:35:28.png)
-
-##### Original gaussian graph
-
-![](https://raw.githubusercontent.com/chenhaotian/Changepoints/master/structural_change/Screenshot_from_2015-04-30_16:35:48.png)
-
-##### Detucted gaussian graph
-
-![](https://raw.githubusercontent.com/chenhaotian/Changepoints/master/structural_change/Screenshot_from_2015-04-30_16:36:38.png)
-
-### 6. Outlier
-
-reference:
-
-### 7. STL
-
+## Reference
+[1] [Bayesian Online Changepoint Detection](http://arxiv.org/abs/0710.3742)
+[2] [Checking wether a coin is fair](https://en.wikipedia.org/wiki/Checking_whether_a_coin_is_fair
+)
+[3] [DeGroot,Optimal Statistical Decisions, chapter 9]()
+[4] [Gamma distribution](https://en.wikipedia.org/wiki/Gamma_distribution)
+[5] [Fink, D. 1995 A Compendium of Conjugate Priors. In progress report: Extension and enhancement of methods for setting data quality objectives. (DOE contract 95‑831).]()

@@ -125,137 +125,6 @@ onlinechangepoint <- function(X,
     res
 }
 
-## Forward algorithm for HMM
-##     ref: [1] MLAPP p609-610, Algorithm 17.1
-## return only the state distributions(which is different from Algorithm 17.1)
-## X: numeric or matrix, observations, each row of X is an entry of a multi-variable observation
-## transition: matrix, transition matrix, dim = NxN
-## observation.model: character, model of observation distribution(evidence distribution), "n" normal, "p" poisson, "b" binomial. "m" multinomial.
-## observation.params: list, observation model parameters for each state, length = N, each distributions' parameters must also be contained in a list.
-## pi: initial state distribution
-HMMFwd <- function(X,
-                   transition=matrix(), #transition matrix in finite state HMM
-                   observation.model=c("n","p","b","m"), #observation distribution
-                   observation.params=list(),        #observation parameters
-                   pi=numeric()    #initial state distribution
-                   ){
-    if(is.vector(X)) X <- matrix(X,ncol = 1)
-    ## 1. parameter check
-    if(length(unique(c(dim(transition),length(observation.params),length(pi))))>1){
-        stop("dim(transition), length(observation.params) and length(pi) must equal to the number of hidden states")
-    }
-    if(length(observation.params)==0) stop("missing observation.params")
-    if(unique(sapply(observation.params,class))!="list") stop("parameters for each observation distribution should also be contained in a list!")
-    observation.model <- match.arg(observation.model)
-    ## 2. preparation
-    ## subroutine
-    normalize <- function(l){
-        l/sum(l)
-    }
-    N <- length(pi)                     #number of hidden states
-    a <- matrix(0,nrow = nrow(X),ncol = N) #output, state distributions
-    ## get observation distribution
-    observation <- switch(observation.model,
-                       n=dnorm,
-                       p=dpois,
-                       b=dbinom,
-                       m=dmultinom
-                       )
-    ## 3.initialize
-    evidence <- sapply(observation.params,function(l){
-        par <- c(list(x=X[1,]),l)
-        do.call(observation,par)
-    },simplify = TRUE,USE.NAMES = FALSE)
-    a[1,] <- normalize(evidence*pi)
-    ## 4. main loop
-    pb <- txtProgressBar(min = 2,max = nrow(X),style = 3)
-    for(i in 2:nrow(X)){
-        evidence <- sapply(observation.params,function(l){
-            par <- c(list(x=X[i,]),l)
-            do.call(observation,par)
-        },simplify = TRUE,USE.NAMES = FALSE)
-        a[i,] <- normalize(evidence*(base::crossprod(transition,a[i-1,])))
-        setTxtProgressBar(pb,i)
-    }
-    cat("\n")
-    a
-}
-
-## Forward-Backword algorithm for HMM
-HMMFwdBack <- function(X,
-                   transition=matrix(), #transition matrix in finite state HMM
-                   observation.model=c("n","p","b","m"), #observation distribution
-                   observation.params=list(),        #observation parameters
-                   pi=numeric()    #initial state distribution
-                   ){
-    if(is.vector(X)) X <- matrix(X,ncol = 1)
-    ## 1. parameter check
-    if(length(unique(c(dim(transition),length(observation.params),length(pi))))>1){
-        stop("dim(transition), length(observation.params) and length(pi) must equal to the number of hidden states")
-    }
-    if(length(observation.params)==0) stop("missing observation.params")
-    if(unique(sapply(observation.params,class))!="list") stop("parameters for each observation distribution should also be contained in a list!")
-    observation.model <- match.arg(observation.model)
-    ## 2. preparation
-    ## subroutine
-    normalize <- function(l){
-        l/sum(l)
-    }
-    N <- length(pi)                     #number of hidden states
-    T <- nrow(X)                        #number of observations
-    evidence <- matrix(0,nrow = T,ncol = N) #evidence probabilities for each state
-    a <- matrix(0,nrow = T,ncol = N) #output, forward state distributions
-    b <- matrix(0,nrow = T,ncol = N) #output, backward state result
-    g <- matrix(0,nrow = T,ncol = N) #output, smoothed state distribution, g \propto a*b
-    ## get observation distribution
-    observation <- switch(observation.model,
-                       n=dnorm,
-                       p=dpois,
-                       b=dbinom,
-                       m=dmultinom
-                       )
-
-    ## Forward begin---------------------------------------------------------
-    ## this part is the same with HMMFwd()
-    ## 3.initialize forward filter
-    evidence[1,] <- sapply(observation.params,function(l){
-        par <- c(list(x=X[1,]),l)
-        do.call(observation,par)
-    },simplify = TRUE,USE.NAMES = FALSE)
-    a[1,] <- normalize(evidence[1,]*pi)
-    ## 4. forward loop
-    cat("forward filtering...\n")
-    pb <- txtProgressBar(min = 2,max = T,style = 3)
-    for(i in 2:T){
-        evidence[i,] <- sapply(observation.params,function(l){
-            par <- c(list(x=X[i,]),l)
-            do.call(observation,par)
-        },simplify = TRUE,USE.NAMES = FALSE)
-        a[i,] <- normalize(evidence[i,]*(base::crossprod(transition,a[i-1,])))
-        setTxtProgressBar(pb,i)
-    }
-    cat("\n")
-    ## Forward end-----------------------------------------------------------
-
-    ## Backward begin--------------------------------------------------------
-    b[T,] <- 1
-    ## 5. backward loop
-    cat("backward smoothing...\n")
-    pb <- txtProgressBar(min = 1,max = T-1,style = 3)
-    for(i in (T-1):1){
-        b[i,] <- unname(drop(
-                     transition%*%drop(evidence[i+1,]*b[i+1,])
-                 ))
-        setTxtProgressBar(pb,T-i)
-    }
-    cat("\n done\n")
-    ## Backward end----------------------------------------------------------
-
-    ## Smoothing-------------------------------------------------------------
-    g <- t(apply(a*b,MARGIN = 1,normalize))
-    invisible(list(a=a,b=b,g=g))
-}
-
 ## multiplot() from R-cookbook
 # Multiple plot function
 #
@@ -352,160 +221,78 @@ tmpplot <- function(resY,Y){
     multiplot(p2,p1,layout = matrix(c(1,2),nrow=2))
 }
 
-## HMMFwd examples------------------------------------
-
-## 1. 'occasionally dishonest casino' from MLAPP p607
-
-## initialize
-pi <- c(dice1=0.5,dice2=0.5)
-transition <- matrix(c(0.95,0.1,0.05,0.9),nrow = 2,ncol = 2,
-                     dimnames = list(c("dice1","dice2"),c("dice1","dice2")))
-observation.params <- list(
-    dice1=list(size=1,prob=c(1/6,1/6,1/6,1/6,1/6,1/6)),
-    dice2=list(size=1,prob=c(1/10,1/10,1/10,1/10,1/10,5/10))
-)
-## simulate 300 samples
-X <- matrix(0,nrow = 300,ncol = 6)
-a <- character(300)
-state <- "dice1"
-for(i in 1:300){
-    if(state=="dice1"&runif(1)<=0.95){
-        ## do nothing
-    }else if(state=="dice1"){
-        state <- "dice2"
-    }else if(state=="dice2"&runif(1)<=0.9){
-        ## do nothing
-    }else{
-        state <- "dice1"
-    }
-    a[i] <- state
-    X[i,] <- drop(do.call(rmultinom,c(observation.params[[state]],list(n=1))))
-}
-## forward filter
-res <- HMMFwd(X,transition,observation.model = "m",observation.params,pi)
-res2 <- HMMFwdBack(X,transition,observation.model = "m",observation.params,pi)$g
- ## plot
-tmp <- res[,2]
-tmp[tmp<=0.5] <- 0
-plot(tmp,type = "h")
-abline(v=which(a=="dice2"),col="gray")
-
-tmp2 <- res2[,2]
-tmp2[tmp2<=0.5] <- 0
-plot(tmp2,type = "h")
-abline(v=which (a=="dice2"),col="gray")
-
 ## online changepoint examples----------------------------
-X <- c(rnorm(100,sd=0.5),rnorm(70,mean=5,sd=0.5),rnorm(70,mean = 2,sd=0.5),rnorm(70,sd=0.5),rnorm(70,mean = 7,sd=0.5))
-Y <- c(rnorm(100,sd=0.5),rnorm(70,sd=1),rnorm(70,sd=3),rnorm(70,sd=1),rnorm(70,sd=0.5))
-Z <- c(rpois(100,lambda=5),rpois(70,lambda=7),rpois(70,lambda=5),rpois(70,lambda=6),rpois(70,lambda=5))
-par(mfcol = c(3,1))
-plot(X,type = "l")
-plot(Y,type = "l")
-plot(Z,type = "l")
-
-## online changepoint detection for series X
-resX <- onlinechangepoint(X,
-                          model = "nng",
-                          mu0=0.7,k0=1,alpha0=1/2,beta0=1,
-                          bpmethod = "mean", #the brute-force method is too time consuming
-                          lambda=50, #exponential hazard
-                          FILTER=1e-3)
-
-## online changepoint detection for series Y
-resY <- onlinechangepoint(Y,
-                          model = "nng",
-                          mu0=0,k0=0.5,alpha0=1/2,beta0=1,
-                          bpmethod = "mean",
-                          lambda=50, #exponential hazard
-                          FILTER=1e-3)
-
-## online changepoint detection for series Z
-resZ <- onlinechangepoint(Z,
+if(FALSE){
+    X <- c(rnorm(100,sd=0.5),rnorm(70,mean=5,sd=0.5),rnorm(70,mean = 2,sd=0.5),rnorm(70,sd=0.5),rnorm(70,mean = 7,sd=0.5))
+    ## online changepoint detection for series X
+    resX <- onlinechangepoint(X,
+                              model = "nng",
+                              mu0=0.7,k0=1,alpha0=1/2,beta0=1, #initial parameters
+                              bpmethod = "mean",
+                              lambda=50, #exponential hazard
+                              FILTER=1e-3)
+    tmpplot(resX,X)
+    
+    
+    Y <- c(rnorm(100,sd=0.5),rnorm(70,sd=1),rnorm(70,sd=3),rnorm(70,sd=1),rnorm(70,sd=0.5))
+    ## online changepoint detection for series Y
+    resY <- onlinechangepoint(Y,
+                              model = "nng",
+                              mu0=0,k0=0.5,alpha0=1/2,beta0=1,
+                              bpmethod = "mean",
+                              lambda=50, #exponential hazard
+                              FILTER=1e-3)
+    tmpplot(resY,Y)
+    
+    
+    Z <- c(rpois(100,lambda=5),rpois(70,lambda=7),rpois(70,lambda=5),rpois(70,lambda=6),rpois(70,lambda=5))
+    ## online changepoint detection for series Z
+    resZ <- onlinechangepoint(Z,
                           model = "pg",
                           alpha0=10,beta0=1,
                           bpmethod = "mean",
                           lambda=10, #exponential hazard
                           FILTER=1e-3)
-
-tmpplot(resX,X)
-tmpplot(resY,Y)
-tmpplot(resZ,Z)
-
-## price and volume data
-load("price_volume")
-directions <- c(0,unname(sign(diff(pv[,"close"]))))
-directions[directions==0] <- NA
-directions <- zoo::na.locf(directions,na.rm = FALSE)
-pv <- cbind(pv,directions)
-pv <- na.omit(pv[pv[,"volume"]!=0,])
-
-pv[,"volume"] <- log(pv[,"volume"])
-me <- median(pv[,"volume"])
-O <- rep(unname(ifelse(pv[,"directions"]==1,1,0)),times = ceiling(pv[,"volume"]/me))
-
-unname(pv[,"volume"])*directions
-
-resO <- onlinechangepoint(O,
-                          model = "bb",
-                          alpha0=50,beta0=50,
-                          bpmethod = "mean",
-                          lambda=100, #exponential hazard
-                          FILTER=1e-3)
-
-tmpplot(resO,O)
-
-## generate coin toss sequence
-
-Z <- unname(pv[,"volume"])
-Z <- Z[Z!=0]
-
-
-poisson_lambda <- round(mean(pv[,"volume"]))
-plot(Z,type = "h")
-
-## use log to scale large numbers
-Z <- ceiling(log(Z)/median(log(Z)))
-
-## gamma related estimate
-x <- rgamma(10000,shape=5,rate=5)
-library(MASS)    # may be loaded by default
-fitdistr(x, "gamma", start=list(shape=1, rate=1))$estimate
-
-
-## online changepoint detection for series Y
-resZ <- onlinechangepoint(Z,
-                          model = "pg",
-                          alpha0=poisson_lambda,beta0=1,
-                          bpmethod = "mean",
-                          lambda=500, #exponential hazard
-                          FILTER=1e-3)
-
-pd <- data.frame()
-for(i in 1:length(resZ)){
-    pd <- rbind(pd,data.frame(x=i,y=resZ[[i]][,"r"],alpha=resZ[[i]][,"prx"]))
+    tmpplot(resZ,Z)
 }
 
-p1 <- ggplot(pd)+geom_point(aes(x=x,y=y,alpha=alpha),fill="black")+theme(legend.position = "none")
-p2 <- ggplot(data.frame(x=1:length(Z),y=Z))+geom_bar(aes(x=x,y=y),stat = "identity")
+## ## price and volume data
+## load("price_volume")
+## directions <- c(0,unname(sign(diff(pv[,"close"]))))
+## directions[directions==0] <- NA
+## directions <- zoo::na.locf(directions,na.rm = FALSE)
+## pv <- cbind(pv,directions)
+## pv <- na.omit(pv[pv[,"volume"]!=0,])
+## ## generate coin toss sequence
+## Z <- unname(pv[,"volume"])
+## Z <- Z[Z!=0]
+## ## use log to scale large numbers
+## Z <- ceiling(log(Z)/median(log(Z)))
+
+## ## gamma related estimate
+## ## x <- rgamma(10000,shape=5,rate=5)
+## ## library(MASS)    # may be loaded by default
+## ## fitdistr(x, "gamma", start=list(shape=1, rate=1))$estimate
+## resZ <- onlinechangepoint(Z,
+##                           model = "pg",
+##                           alpha0=poisson_lambda,beta0=1,
+##                           bpmethod = "mean",
+##                           lambda=500, #exponential hazard
+##                           FILTER=1e-3)
 
 
+## ## How robust they can be?
+## x <- rnorm(10000)
+## sd(x)
+## mad(x)
+## x[2] <- 100
+## sd(x)
+## mad(x)
 
 
-
-
-## How robust they can be?
-x <- rnorm(10000)
-sd(x)
-mad(x)
-x[2] <- 100
-sd(x)
-mad(x)
-
-
-## Hazard functions
-exphazard <- function(x,rate=1){
-    dexp(x,rate=rate)/(1-pexp(x,rate = rate))
-}
-exphazard(1:10)                         #constant hazard
+## ## Hazard functions
+## exphazard <- function(x,rate=1){
+##     dexp(x,rate=rate)/(1-pexp(x,rate = rate))
+## }
+## exphazard(1:10)                         #constant hazard
 
