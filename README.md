@@ -157,8 +157,12 @@ Original data and inferred run length distribution:
 
 ## Reference
 [1] [Bayesian Online Changepoint Detection](http://arxiv.org/abs/0710.3742)
+
 [2] [Checking wether a coin is fair](https://en.wikipedia.org/wiki/Checking_whether_a_coin_is_fair
 )
+
 [3] [DeGroot,Optimal Statistical Decisions, chapter 9]()
+
 [4] [Gamma distribution](https://en.wikipedia.org/wiki/Gamma_distribution)
+
 [5] [Fink, D. 1995 A Compendium of Conjugate Priors. In progress report: Extension and enhancement of methods for setting data quality objectives. (DOE contract 95‑831).]()
