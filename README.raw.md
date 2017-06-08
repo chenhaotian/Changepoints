@@ -17,7 +17,7 @@ Parameters:
 args(onlinechangepoint)
 ```
 + **X** : numeric, observations.
-+ **model** : character, specifying model to be used, can be one of c("nng","pg","bb","g")
++ **model** : character, specifying model to be used, should be one of c("nng","pg","bb","g")
 	+ nng: normal evidence(observation distribution) and normal-gamma prior
 	+ pg: poisson evidence and gamma prior
 	+ bb: binomial evidence and beta prior
@@ -29,7 +29,7 @@ args(onlinechangepoint)
 + **lambda** : numeric, parameter of the exponential hazard function.(act as transition distribution)
 + **FILTER** : if `P(r_t|x_{1:t})<FILTER`, this `r_t` will be omitted in next round of online calculation.
 
-See [Examples](#examples) below for detailed explanation in function usage.
+See [Examples](#examples) below for details.
 
 ## Derivation
 Adams&Mackay's paper interpret the change point detection problem with an infinite state hidden markov model. Hereby the definitions:
