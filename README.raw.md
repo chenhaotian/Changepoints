@@ -33,7 +33,7 @@ See [Examples](#examples) below for details.
 
 ## Derivation
 Adams&Mackay's paper interpret the change point detection problem with an infinite state hidden markov model. Hereby the definitions:
-+ $r_t$ is the time lenght since last changepoint, $x_{t}^{(r)}$ denote the data sets associated with run $r_t$. **As $r$ may be zero, $x^{(r)}$ may be empty**.The hidden states are the run lengths $r$ of current observation, they evolve as the following way:
++ $r_t$ is the time length since last changepoint, $x_{t}^{(r)}$ denote the data sets associated with run $r_t$. **As $r$ may be zero, $x^{(r)}$ may be empty**.The hidden states are the run lengths $r$ of current observation, they evolve as the following way:
 ![](https://raw.githubusercontent.com/chenhaotian/Changepoints/master/online_detection/state_transition.png)
 + For each parition $\rho$, the data within it are i.i.d. from some probability distribution $P (x_t | \eta_\rho)$
 + The discrete **a priori**(Latin phrase, means 'from the earlier',contrast to **a posteriori**,'from the latter') probability distribution over the interval between changepoints is denoted as $P_{gap}(g)$, i.e. the probability of current run ending up at length $g$.(recall geometric distribution)
