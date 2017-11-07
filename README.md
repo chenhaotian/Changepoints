@@ -1,5 +1,5 @@
 # Bayesian online change point detection 
-An R implementation of the paper: Bayesian Online Changepoint Detection(Ryan Prescott Adams and David J.C. MacKay 2007), **with derivation process explanations, additional conjugate distributions and examples,** the following chapters will cover: 
+An R implementation of the paper: Bayesian Online Changepoint Detection(Ryan Prescott Adams and David J.C. MacKay 2007), **with derivation process explanations, additional conjugate distributions and examples,** : 
 + [Basic idea and function usage](#usage) 
 + [Derivation process explanations](#derivation) 
 + Normal evidence distribution and normal-gamma prior + [examples](#examples) 
