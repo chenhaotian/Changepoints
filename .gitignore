@@ -1,9 +1,14 @@
+# exclude all pdf files
+*.pdf
+
 # History files
 .Rhistory
+_Rhistory
 .Rapp.history
 
 # Session Data files
 .RData
+_RData
 
 # Example code in package build process
 *-Ex.R
@@ -32,10 +37,56 @@ vignettes/*.pdf
 *.utf8.md
 *.knit.md
 
+# Shiny token, see https://shiny.rstudio.com/articles/shinyapps.html
+rsconnect/
+
 # Temporary files created by Emacs
 *~
 \#*\#
 \#*
 
-# Mac temp file
-.DS_store
+# supid mac temp files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Prerequisites
+*.d
+
+# C++ Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# C++ Precompiled Headers
+*.gch
+*.pch
+
+# C++ Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# C++ Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# C++ Executables
+*.exe
+*.out
+*.app
+
+# vscode temp files
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
