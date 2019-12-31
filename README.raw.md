@@ -97,7 +97,7 @@ source("https://raw.githubusercontent.com/chenhaotian/Changepoints/master/R/chan
 ```
 #### R Functions
 
-This section lists the only the general descriptions. See the section [R Examples](#R Examples) for implementation notes.
+This section lists the only the general descriptions. See the section [R Examples](#r_examples) for implementation notes.
 
 | Name            | Description                                                  |
 | --------------- | ------------------------------------------------------------ |
@@ -118,7 +118,7 @@ Say we have observed a time series data in 10 days, there are 200, 300, 220, 250
 
 After learning the segment duration distribution, we want to apply the learned model to some new data for online detection.
 
-Generate some synthetic data:
+Step 1: Generate some synthetic data, for demo purpose:
 
 ```R
 ## generate historical data 'x', x is normally distributed, the segment duration is Weibull with shape=2 and scale = 50
@@ -135,7 +135,7 @@ newx <- unlist(sapply(round(rweibull(10,shape = 2,scale = 50)),function(l){
 }))
 ```
 
-Offline learning from historical data:
+Step 2: Offline learning from historical data:
 
 ```R
 
@@ -152,7 +152,7 @@ bcpObj <- bcp(x,breaks = BREAKS,cpt_model = cpt_model,obs_model = obs_model,obs_
 bcpEM(bcpObj,nstart = 2)
 ```
 
-Online filtering on new observations
+Step 3: Used the MAP estimates we just learned to perform online filtering on new observations:
 
 ```R
 ## perfom online filtering, by setting l=0 in bcpo()
@@ -161,7 +161,7 @@ bcpoObj1 <- bcpo(shape = bcpObj$MAP[1],scale = bcpObj$MAP[2],cpt_model = cpt_mod
 for(i in seq_along(newx)) bcpOnline(bcpoObj=bcpoObj1,newObs=newx[i])
 ```
 
-Online fixed-lag smoothing on new observations:
+Step 4: Used the MAP estimates we just learned to perform online fixed-lag smoothing on new observations:
 
 ```R
 ## perfom online fixed-lag smoothing(by setting l>0, in this case let's use l=10 and l=40)
@@ -174,7 +174,7 @@ for(i in seq_along(newx)){
 }
 ```
 
-Compare the filtered and fixed-lag smoothed results:
+Step 5: Compare the filtered and fixed-lag smoothed results:
 
 ```R
 par(mfcol = c(3,1))
@@ -207,12 +207,33 @@ abline(v=which(bcpoObj3$isCPT),lty=2,col="red")
 ## Reference
 
 [^1]: Adams, Ryan Prescott, and David JC MacKay. "Bayesian online changepoint detection." arXiv preprint arXiv:0710.3742 (2007).
+
+
+
 [^2]: Murphy, Kevin P. "Conjugate Bayesian analysis of the Gaussian distribution." def 1.2σ2 (2007): 16.
+
+
+
 [^3]: McLachlan, Geoffrey, and Thriyambakam Krishnan. *The EM algorithm and extensions*. Vol. 382. John Wiley & Sons, 2007.
+
+
+
 [^4]: Murphy, Kevin P. *Machine learning: a probabilistic perspective*. MIT press, 2012.
+
+
+
 [^5]: Gelman, Andrew, et al. *Bayesian data analysis*. Chapman and Hall/CRC, 2013.
+
+
+
 [^6]: Soland, Richard M. "Bayesian analysis of the Weibull process with unknown scale and shape parameters." *IEEE Transactions on Reliability* 18.4 (1969): 181-184.
+
+
+
 [^7]: Walker, Stephen G. "Sampling the Dirichlet mixture model with slices." *Communications in Statistics—Simulation and Computation®* 36.1 (2007): 45-54.
+
+
+
 [^8]: Van Gael, Jurgen, et al. "Beam sampling for the infinite hidden Markov model." *Proceedings of the 25th international conference on Machine learning*. ACM, 2008.
 
 
