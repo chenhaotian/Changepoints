@@ -28,13 +28,7 @@ inferenceJointGaussian <- function(x2,mu,Precision=NULL,Sigma=NULL){
     if(D!=length(mu)) stop("Error in inferenceJointGaussian(): Dimension doesn't mathc! nrow(Precision) != length(mu)")
     D1 <- D-length(x2)                  #dimension of X1
     if(D1<=0) stop("Error in inferenceJointGaussian(): length(mu2) should be strictly smaller than D")
-    
-    ## S11 <- Sigma[1:D1,1:D1,drop=FALSE]
-    ## S12 <- Sigma[1:D1,(D1+1):D,drop=FALSE]
-    ## S22 <- Sigma[(D1+1):D,(D1+1):D,drop=FALSE]
-    ## S21 <- Sigma[(D1+1):D,1:D1,drop=FALSE]
-    ## S11-S12%*%solve(S22)%*%S21
-    
+        
     P11 <- Precision[1:D1,1:D1,drop=FALSE]
     P12 <- Precision[1:D1,(D1+1):D,drop=FALSE]
 
@@ -83,6 +77,16 @@ mapGaussian <- function(m,k,v,S){
          sigmaMAP=S/(v+D+2))
 }
 
+## base::det() doesn't support scalar values, so write a wrapper around it
+## this function is called in marginalLikelihoodGaussian_byPosterior()
+det <- function(m){
+    if(is.matrix(m)){
+        base::det(m)
+    }else if(is.vector(m)){
+        base::prod(m)
+    }
+}
+
 ## Marginal likelihood of Gaussian observations (NIW prior)
 ## return the log marginal likelihood log P(x|model)
 ##
@@ -111,20 +115,7 @@ marginalLikelihoodGaussian <- function(x,m0,k0,v0,S0,LOG=TRUE){
 ## Marginal likelihood of Gaussian observations (NIW prior)
 ## same as marginalLikelihoodGaussian(), difference is the input x is replaced by it's posteriors
 marginalLikelihoodGaussian_byPosterior <- function(N,mN,kN,vN,SN,m0,k0,v0,S0,LOG=TRUE){
-    ## copied from myTools.r
     ## tested, stable
-    lmvgamma <- function(a,p){
-        sapply(a,function(ai){
-            p*(p-1)/4*log(pi)+ sum(lgamma(ai+(1-(1:p))/2))
-        },simplify = TRUE)
-    }
-    det <- function(m){                 #det doesn't support scalar values, so write a wrapper around it
-        if(is.matrix(m)){
-            base::det(m)
-        }else if(is.vector(m)){
-            base::prod(m)
-        }
-    }
     p <- length(mN)                     #dimension
     
     ## method 1 use the equation
@@ -132,7 +123,7 @@ marginalLikelihoodGaussian_byPosterior <- function(N,mN,kN,vN,SN,m0,k0,v0,S0,LOG
     if(!LOG) logp <- exp(logp)
     
     ## method 2 use the t distribution
-    ## to be completed
+    ## ---to be completed---
     
     logp
 }
@@ -264,12 +255,7 @@ lmvgamma <- function(a,p){
 ## and 2. the prediction probability
 ##     log P(x_t | r_t, x^{(r_t)})
 ## 
-## there are two ways of using this function:
-##     1. when x is not NULL, will generate the posterior parameters for each accumulation of x, and the probability of observing each x
-##     2. prePos and xnew are not NULL and x is NULL, will generate the posterior parameter for data accumulated til xnew, and the probability of observing xnew
 ## x: numeric matrix, or an object that can be coerced to a matrix. Observation sequence, each row of x is a TRANSPOSE of an observation
-## xnew: numeric vector, or an object that can be coerced to a vector. a new observations (only one observation)
-## prePos: list, posterior parameters in previous time point
 ## prior: prior parameters, if model = "univariate-normal" or "multivariate-gaussian", prior should be a named list: list(m0,k0,v0,S0)
 ##                          if model = "poisson" or "exponential", prior should be a be a named list: list(scale)
 ##                          if model = "gamma" or "weibull", prior should be a named list:  list(shape,scale)
@@ -278,10 +264,7 @@ lmvgamma <- function(a,p){
 ## Example
 ## x <- rnorm(1000,mean = 10,sd = 5)
 ## out <- bcpPrediction(x=x,model = "univariate-normal",prior = list(m0=0,k0=1.2,v0=1.1,S0=2))
-## out2 <- bcpPrediction(xnew = x[98],prePos = list(m=out$m[[97]],S=out$S[[97]],logS=out$logS[[97]]),model = "univariate-normal",prior = list(m0=0,k0=1.2,v0=1.1,S0=2))
-## identical(out$m[[98]],out2$m)
-## identical(out$S[[98]],out2$S)
-## identical(out$p[[98]],out2$p)
+## names(out)
 bcpPrediction <- function(x,model=c("univariate-gaussian","multivariate-gaussian"),prior=list(m0=NULL,k0=NULL,v0=NULL,S0=NULL)){
     model <- match.arg(model)
     ## generate the posterior parameters for all data
@@ -472,21 +455,14 @@ bcpFiltering.bcp <- function(bcpObj){
     ## first column: P(q+1|q), second column: P(0|q)
     bcpObj$transition <- logLTRC(0L:(bcpObj$maxRun-1L),cpt_model = bcpObj$cpt_model,shape = bcpObj$shape,scale=bcpObj$scale)
     bcpObj$transition <- exp(bcpObj$transition)
-    ## plot(transition[,2],type = "l") #increasing hazard
     
     ## generate the prediction probability: log P(x_t | r_t, x^{(r_t)})
-    ## ### if(!exists("pxr",envir = bcpObj,inherits = FALSE)){ #must guarantee inherites=FALSE, or the namespace of parent frame will also be searched!!!!!!!!!!!!!
     bcpObj$pxr <- list()
     for(s in 1:bcpObj$Nsegs){
         bcpObj$pxr <- c(bcpObj$pxr,bcpPrediction(x=bcpObj$x[(bcpObj$breaks[s]+1):bcpObj$breaks[s+1],,drop=FALSE],model = bcpObj$obs_model,prior = bcpObj$obs_prior)$p) #only log probability is needed, so append a "$p" at the end
     }
     bcpObj$pxr_exp <- lapply(bcpObj$pxr,exp) #not log version
-    
-    ## debug code
-    ## if(any(sapply(bcpObj$pxr,function(l){
-    ##     any(is.nan(l)|is.na(l)|is.infinite(l))
-    ## }))) stop("xxxx")
-    
+        
     tmp <- 0                            #temporary variable
     LL <- 0
     start <- 0                          #starting location of each segment
@@ -513,8 +489,6 @@ bcpFiltering.bcp <- function(bcpObj){
     }
     
     LL <- LL+logprior
-    
-    ## invisible(gc())
     
     ## append resuts to bcp object
     bcpObj$LL <- LL
@@ -556,30 +530,6 @@ bcpTwoslice.bcp <- function(bcpObj){
     ## can be see as a aparse version of the twoslice matrix
     ## because t in 1:T-1, so run length are in 0:T-2, i.e. T-1 unique different run lengths
     bcpObj$pii <- matrix(0,nrow = bcpObj$maxRun-1,ncol=2) #place holder for transition counts
-    ## invisible(gc)
-    ## place holder
-    ## tmp <- matrix(0,nrow = bcpObj$maxRun-1,ncol=2)
-    ## for(i in 1:(bcpObj$T-1)){
-    ##     ## tansition: first column: P(q+1|q), second column: P(0|q)
-    ##     tmp[1:i,] <- bcpObj$transition[1:i,] * bcpObj$a[[i]]
-    ##     tmp[1:i,1] <- tmp[1:i,1] * bcpObj$b[[i+1]][-1] * bcpObj$pxr_exp[[i+1]][-1]
-    ##     tmp[1:i,2] <- tmp[1:i,2] * bcpObj$b[[i+1]][1] * bcpObj$pxr_exp[[i+1]][1]
-    ##     tmp[1:i,] <- tmp[1:i,]/sum(tmp[1:i,]) #normalize
-    ##     bcpObj$pii[1:i,] <- bcpObj$pii[1:i,] + tmp[1:i,]     #the transition counts
-    ## }
-
-    ## system.time(for(s in 1:bcpObj$Nsegs){
-    ##     start <- bcpObj$breaks[s]
-    ##     for(i in 1:(bcpObj$segLengths[s]-1)){
-    ##         ## tansition: first column: P(q+1|q), second column: P(0|q)
-    ##         tmp[1:i,] <- bcpObj$transition[1:i,] * bcpObj$a[[start+i]]
-    ##         tmp[1:i,1] <- tmp[1:i,1] * bcpObj$b[[start+i+1]][-1] * bcpObj$pxr_exp[[start+i+1]][-1]
-    ##         tmp[1:i,2] <- tmp[1:i,2] * bcpObj$b[[start+i+1]][1] * bcpObj$pxr_exp[[start+i+1]][1]
-    ##         tmp[1:i,] <- tmp[1:i,]/sum(tmp[1:i,]) #normalize
-    ##         bcpObj$pii[1:i,] <- bcpObj$pii[1:i,] + tmp[1:i,]     #the transition counts
-    ##         tmp[] <- 0
-    ##     }
-    ##             })
     for(s in 1:bcpObj$Nsegs){
         start <- bcpObj$breaks[s]
         for(i in 1:(bcpObj$segLengths[s]-1)){
@@ -791,10 +741,6 @@ bcpoAttach.bcpo <- function(bcpoObj,newObs){
             bcpoObj$pxr_exp <- c(bcpoObj$pxr_exp,list(exp(px)))
         }
     }
-    
-    ## invisible(gc())                                #have to run garbage colloctor, because there are lots of garbages
-    
-
 
 }
 
@@ -849,7 +795,4 @@ bcpOnline.bcpo <- function(bcpoObj,newObs){
         bcpoObj$isCPT[magneticHead] <- which.max(bcpoObj$a[[magneticHead]])==1 #update the changepoint ideicator
     }
 
-    ## no need to run gc(), temporary objects will be deleted automatically when function exit
-    ## invisible(gc())                     #garbage clean, there are lots of temporary variables generated
-    
 }
