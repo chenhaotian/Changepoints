@@ -72,7 +72,7 @@ P(r_t | x_{1:t+l}, \theta_d,\eta_x), l\ge 0
 \end{equation*}
 $$
 
-Where $l$ is the time lag between most recent observation and the estimation horizon. The detection problem is equivalent to filtering when $l=0$, to fixed-lag smoothing when $l>0$.
+Where $l$ is the time lag between most recent observation and the estimation horizon. The detection problem is equivalent to filtering when $l=0$, to fixed-lag smoothing when $l>0$. The probability of a change point occurring at time $t$ is $P(r_t = 0 | x_{1:t+l}, \theta_d,\eta_x)$, and when $P(r_t = 0 | x_{1:t+l}, \theta_d,\eta_x) > P(r_t \ueq 0 | x_{1:t+l}, \theta_d,\eta_x)$, we say "at time $t$ there is a change point".
 
 For **offline learning** problem, the goal is then to estimate:
 $$
@@ -102,7 +102,7 @@ This section lists the only the general descriptions. See the section [R Example
 | Name            | Description                                                  |
 | --------------- | ------------------------------------------------------------ |
 | **bcp**         | Create a Bayesian change point object for **offline learning**. <br/>**Usage**: <br/>    bcp(x = NULL, breaks = NULL,  cpt_model = c("weibull", "gamma", "exponential"), obs_model = c("univariate-gaussian", "multivariate-gaussian", "multinomial", "poisson", "exponential",  "gamma","linear"), obs_prior = list(), cpt_prior = list(), shape = NULL, scale = NULL,)<br/>**Arguments**:<br/>    x: numeric matrix, or an object that can be coerced to a matrix. Observation sequence, each row of x is a TRANSPOSE of an observation vector.<br/>    breaks: if 'x' is an `rbind` of multiple set of observations, 'breaks' will be the ending row number of each sets. For example if 'x' is an `rbind` of 3 days time series with 5,9 and 3 observations each day. then 'breaks' will be c(5,14,17). When 'breaks' = NULL, the model will assume all observations came from only dataset. Default NULL.<br/>    cpt_model: the segment duration distribution to be used, must be one of "weibull","gamma" and "exponential"<br/>    obs_model: the observation distribution to be used, must be one of "univariate-gaussian","multivariate-gaussian","multinomial","poisson","exponential","gamma" and "linear".<br/>    obs_prior: hyper parameters for the observation distribution. See Examples for details. <br/>    cpt_prior: hyper parameters for the segment duration distribution. See Examples for details.<br/>    shape, scale: the initial shape and scale parameter for the segment duration distribution. No need to specify, default NULL. <br/>**Value**:<br/>    returns an object of class 'bcp'. This object will be further used in the learning and offline smoothing processes. |
-| **bcpEM**       | Get MAP estimates of the segment duration with (generalized) EM algorithm. <br/>**Usage**:<br/>    bcpEM(bcpObj, maxit = 100, deps = 1e-04, nstart = 10L)<br/>**Arguments**:<br/>    bcpObj, and object created by bcp().<br/>    maxit, number of maximum EM iterations.<br/>    deps, learning precision, the learning stops when the difference between the most recent two observed data likelihoods is smaller than 'deps'.<br/>    nstart, number of random restarts, set 'nstart' bigger to avoid local optimal, but will cost more time.<br/>**Value**:<br/>    The MAP estimates of shape and scale parameters will be stored in `bcpObj$MAP`. |
+| **bcpEM**       | Get MAP estimates of the segment duration with (generalized) EM algorithm. <br/>**Usage**:<br/>    bcpEM(bcpObj, maxit = 100, deps = 1e-04, nstart = 10L)<br/>**Arguments**:<br/>    bcpObj: and object created by bcp().<br/>    maxit: number of maximum EM iterations.<br/>    deps: learning precision, the learning stops when the difference between the most recent two observed data likelihoods is smaller than 'deps'.<br/>    nstart: number of random restarts, set 'nstart' bigger to avoid local optimal, but will cost more time.<br/>**Value**:<br/>    The MAP estimates of shape and scale parameters will be stored in `bcpObj$MAP`. |
 | **bcpMCMC**     | Sample from the posterior distribution of the segment durations with MCMC.<br/>**Usage**:<br/>    bcpMCMC(bcpObj, burnin = 100, nSample = 5000)<br/>**Arguments**:<br/>    bcpObj: an object created by bcp().<br/>    burnin: number of burn-in samples.<br>    nSamples: number of samples to draw after burn-in.<br/> **Value**:<br/>    The posterior samples of shape and scale will be stored in `bcpObj$postSamples`. |
 | **bcpo**        | Create a Bayesian change point object for **online inference**. <br/>**Usage**: <br/>    bcpo(shape = NULL, scale = NULL, cpt_model = c("weibull", "gamma", "exponential"), obs_model = c("univariate-gaussian", "multivariate-gaussian", "multinomial", "poisson", "exponential",  "gamma", "linear"), obs_prior = list(), cpt_prior = list(), l = 0)<br/>**Arguments**:<br/>    shape, scale: the shape and scale of the segment duration distribution. shape and scale can be learned from bcpEM() or bcpMCMC(), or be specified manually.<br/>    cpt_model, obs_model, obs_prior, cpt_prior: same as the ones defined in bcp().<br/>    l: inference lag, bcpOnline will perform online filtering when l=0, fixed-lag smoothing when l>0.<br/>**Value**:<br/>    returns an object of class 'bcpo'. This object will be further used in the bcpOnline() function for online filtering and fixed-lag smoothing. |
 | **bcpOnline**   | Bayesian change point online filtering and fixed-lag smoothing.<br/>**Usage**:<br/>    bcpOnline(bcpoObj, newObs)<br/>**Arguments**:<br/>    bcpoObj: an object created by bcpo().<br/>    newObs: new observations matrix, or an object that can be coerced to a matrix.<br/>**Value**:<br/>    The filtered/fixed-lag smoothed change point probability will be attached to `bcpoObj$pCPT`;<br>    The change point indicator of each time point will be attached to `bcpoObj$isCPT` |
@@ -152,7 +152,7 @@ bcpObj <- bcp(x,breaks = BREAKS,cpt_model = cpt_model,obs_model = obs_model,obs_
 bcpEM(bcpObj,nstart = 2)
 ```
 
-Step 3: Used the MAP estimates we just learned to perform online filtering on new observations:
+Step 3: Use the MAP estimates we just learned to perform online filtering on new observations:
 
 ```R
 ## perfom online filtering, by setting l=0 in bcpo()
@@ -161,7 +161,7 @@ bcpoObj1 <- bcpo(shape = bcpObj$MAP[1],scale = bcpObj$MAP[2],cpt_model = cpt_mod
 for(i in seq_along(newx)) bcpOnline(bcpoObj=bcpoObj1,newObs=newx[i])
 ```
 
-Step 4: Used the MAP estimates we just learned to perform online fixed-lag smoothing on new observations:
+Step 4: Use the MAP estimates we just learned to perform online fixed-lag smoothing on new observations:
 
 ```R
 ## perfom online fixed-lag smoothing(by setting l>0, in this case let's use l=10 and l=40)
