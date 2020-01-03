@@ -59,7 +59,7 @@ For **online detection** problem, the goal is to estimate:
 ![](./notes_pictures/340596e6e2b4937a81d40efdbcd80945.png)
  
  
-Where ![](./notes_pictures/601b9920a15ba9714533f80e3471aceb.png) is the time lag between most recent observation and the estimation horizon. The detection problem is equivalent to filtering when ![](./notes_pictures/1f135808d37b0f7886050537d68779a5.png), to fixed-lag smoothing when ![](./notes_pictures/d6e94fa1f039aab752d8e39354f5f34b.png). 
+Where ![](./notes_pictures/601b9920a15ba9714533f80e3471aceb.png) is the time lag between most recent observation and the estimation horizon. The detection problem is equivalent to filtering when ![](./notes_pictures/1f135808d37b0f7886050537d68779a5.png), to fixed-lag smoothing when ![](./notes_pictures/d6e94fa1f039aab752d8e39354f5f34b.png). The probability of a change point occurring at time ![](./notes_pictures/ad87a16549d39613ec7c409905b180ab.png) is ![](./notes_pictures/ec4a9e4d69b88a0addfb8ea72b33c827.png), and when ![](./notes_pictures/82e9c545455ce9a0876183dd8dc46c13.png), we say "at time ![](./notes_pictures/ad87a16549d39613ec7c409905b180ab.png) there is a change point". 
  
 For **offline learning** problem, the goal is then to estimate: 
 

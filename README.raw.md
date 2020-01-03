@@ -72,7 +72,7 @@ P(r_t | x_{1:t+l}, \theta_d,\eta_x), l\ge 0
 \end{equation*}
 $$
 
-Where $l$ is the time lag between most recent observation and the estimation horizon. The detection problem is equivalent to filtering when $l=0$, to fixed-lag smoothing when $l>0$. The probability of a change point occurring at time $t$ is $P(r_t = 0 | x_{1:t+l}, \theta_d,\eta_x)$, and when $P(r_t = 0 | x_{1:t+l}, \theta_d,\eta_x) > P(r_t \ueq 0 | x_{1:t+l}, \theta_d,\eta_x)$, we say "at time $t$ there is a change point".
+Where $l$ is the time lag between most recent observation and the estimation horizon. The detection problem is equivalent to filtering when $l=0$, to fixed-lag smoothing when $l>0$. The probability of a change point occurring at time $t$ is $P(r_t = 0 | x_{1:t+l}, \theta_d,\eta_x)$, and when $P(r_t = 0 | x_{1:t+l}, \theta_d,\eta_x) > P(r_t \neq 0 | x_{1:t+l}, \theta_d,\eta_x)$, we say "at time $t$ there is a change point".
 
 For **offline learning** problem, the goal is then to estimate:
 $$
